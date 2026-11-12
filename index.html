@@ -160,7 +160,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .stats{width:100%;padding-bottom:5px;border-bottom:1px solid rgba(217,180,90,.3)}
 
 /* help overlay */
-.helpov{z-index:10;position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.6);pointer-events:auto}
+.helpov{z-index:10;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(0,0,0,.6);pointer-events:auto}
 .helpbox{width:min(600px,90vw)}
 .helpbox .in{padding:16px 20px;display:flex;flex-direction:column;gap:9px;font-size:14px;line-height:1.5}
 .helpbox h2{margin:0;font-family:var(--f-title);font-weight:800;font-size:21px;color:var(--gold);letter-spacing:.1em}
@@ -212,11 +212,30 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .tbl{font-size:12.5px;line-height:1.35;color:var(--txt);background:rgba(0,0,0,.3);border-radius:6px;padding:5px 7px}
 .tbl b{color:var(--gold);user-select:text}
 .tag .nm{font-family:var(--f-title);font-weight:800;font-size:14px;color:#fff;background:rgba(0,0,0,.6);padding:0 8px;border-radius:5px;white-space:nowrap}
+.logo{display:flex;flex-direction:column;align-items:center;line-height:.9;text-align:center;pointer-events:none;animation:logoIn .7s cubic-bezier(.2,.9,.25,1.1) both}
+.logo .l1,.logo .l2{font-family:var(--f-title);font-weight:800;letter-spacing:.06em;
+  background:linear-gradient(180deg,#fff6cf 0%,var(--brass-hi) 35%,var(--brass) 60%,var(--brass-lo) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 0 rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(240,204,106,.35))}
+.logo .l1{font-size:clamp(28px,3.4vw,46px);letter-spacing:.3em;margin-right:-.3em}
+.logo .l2{font-size:clamp(64px,8vw,116px)}
+.logo .l3{margin-top:8px;font-size:15px;color:var(--txt);text-shadow:0 2px 4px rgba(0,0,0,.9)}
+@keyframes logoIn{from{transform:translateY(-30px) scale(.92);opacity:0}to{transform:none;opacity:1}}
+/* game panels hide while the menu is open and slide in when play starts */
+.bottom > .menu,.bottom > .cards,.bottom > .info,#tags,#toasts{transition:transform .75s cubic-bezier(.2,.9,.25,1.08),opacity .5s ease}
+.bottom > .cards{transition-delay:.08s}
+.bottom > .info{transition-delay:.16s}
+html.inmenu .bottom > .menu{transform:translateX(-130%)}
+html.inmenu .bottom > .cards{transform:translateY(160%)}
+html.inmenu .bottom > .info{transform:translateX(130%)}
+html.inmenu #tags,html.inmenu #toasts{opacity:0;transition-delay:0s}
+html.inmenu .bottom > *{transition-delay:0s}
 .loading{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);font-family:var(--f-title);font-size:22px;color:var(--brass);letter-spacing:.25em}
 .loading span{animation:blink 1.2s ease-in-out infinite}
 @keyframes blink{50%{opacity:.3}}
-@media (prefers-reduced-motion:reduce){.toast,.toast.out,.hc.new,.tag .act.pop,.loading span{animation:none}}
+@media (prefers-reduced-motion:reduce){.bottom > .menu,.bottom > .cards,.bottom > .info,#tags,#toasts,.logo{transition:none;animation:none}.toast,.toast.out,.hc.new,.tag .act.pop,.loading span{animation:none}}
 </style>
+
+<script>document.documentElement.classList.add("inmenu")</script>
 </head>
 <body>
 <canvas id="gl"></canvas>
@@ -283,10 +302,9 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
   </div>
 
   <div class="helpov" id="startOv">
+    <div class="logo" aria-label="Low Poly Poker"><span class="l1">LOW POLY</span><span class="l2">POKER</span><span class="l3">Texas Hold'em con dinero ficticio</span></div>
     <div class="startbox panel"><div class="in">
       <section class="scr" id="scrHome">
-        <h2>LOW POLY POKER</h2>
-        <div class="sub">Texas Hold'em con dinero ficticio</div>
         <label class="fld" for="nameIn">TU NOMBRE<input id="nameIn" maxlength="14" autocomplete="off" placeholder="Jugador"></label>
         <div class="bigbtns">
           <button class="btn call big" id="goSolo">JUGAR SOLO<small>Tú contra 4 bots</small></button>
@@ -1105,7 +1123,7 @@ function hostGone(text){
   $('#netErr').textContent = text || 'El anfitrión ha cerrado la mesa.'; $('#netErr').hidden = false;
   if (NET.table) NET.table.leave().catch(() => {});
   NET.table = null;
-  $('#startOv').hidden = false;
+  setMenu(true);
 }
 async function applyState(S){
   if (!S || !Array.isArray(S.P) || S.P.length !== N) return;
@@ -1186,10 +1204,11 @@ function renderTables(peers){
 }
 async function startOnline(fn){
   $('#netErr').hidden = true;
-  try { saveName(); await fn(); $('#startOv').hidden = true; }
+  try { saveName(); await fn(); setMenu(false); }
   catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'No hay ninguna mesa abierta con ese código. Quien la creó tiene que seguir con la página del juego abierta: si la cierra, la recarga o abre el enlace en esa misma pestaña, la mesa desaparece y hay que crear otra.' : e && e.code === 'sin-conexion' ? 'La mesa existe, pero no se pudo conectar con ella. Suele pasar con cortafuegos estrictos (wifi del trabajo o del instituto, algunas redes móviles). Prueba con otra red o vuelve a intentarlo.' : e && ['servidor','network','server-error','socket-error','socket-closed'].includes(e.code) ? 'No se pudo contactar con el servidor de mesas. Revisa tu conexión a internet e inténtalo de nuevo.' : e && e.code === 'unavailable-id' ? 'Ese código ya está en uso. Vuelve a intentarlo.' : 'No se pudo conectar (' + (e && e.code || 'error') + '). Inténtalo de nuevo.'; $('#netErr').hidden = false; }
 }
 function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); } catch(e){} }
+function setMenu(open){ $('#startOv').hidden = !open; document.documentElement.classList.toggle('inmenu', open); }
 function setManual(v){ G.manual = v; $('#manualT').checked = v; $('#optManual').checked = v; try { localStorage.setItem('mv-manual', v ? '1' : '0'); } catch(e){} if (!v){ G.sel = new Set(); sendSel(); } render(); }
 function setHelp(v){ G.help = v; $('#helpT').checked = v; $('#optHelp').checked = v; try { localStorage.setItem('mv-help', v ? '1' : '0'); } catch(e){} render(); }
 function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; }
@@ -1210,6 +1229,8 @@ function saveBots(){ try { localStorage.setItem('mv-bots', JSON.stringify(G.botP
 function freshBots(){ for (let i=1;i<N;i++) G.players[i] = null; for (let i=1;i<N;i++) G.players[i] = makeBot(i); }
 function setupMenu(){
   try { $('#nameIn').value = localStorage.getItem('mv-name') || ''; } catch(e){}
+  $('#nameIn').addEventListener('input', saveName);
+  $('#nameIn').addEventListener('change', saveName);
   try { G.help = localStorage.getItem('mv-help') !== '0'; G.manual = localStorage.getItem('mv-manual') !== '0'; } catch(e){}
   try { const b = JSON.parse(localStorage.getItem('mv-bots') || 'null'); if (Array.isArray(b) && b.length === 4 && b.every(x => PERS.some(p => p.id === x))) G.botPrefs = b; } catch(e){}
   $('#helpT').checked = $('#optHelp').checked = G.help;
@@ -1226,7 +1247,7 @@ function setupMenu(){
   $('#backOnline').onclick = () => showScreen('#scrHome');
   $('#bCreate').onclick = () => { target = 'host'; $('#setupTitle').textContent = 'TU MESA ONLINE'; $('#botCfg').hidden = !$('#fillBots').checked; $('#bStart').textContent = 'CREAR MESA'; showScreen('#scrSetup'); };
   $('#bStart').onclick = () => {
-    if (target === 'solo'){ $('#startOv').hidden = true; G.mode = 'solo'; freshBots(); startHand(); }
+    if (target === 'solo'){ setMenu(false); G.mode = 'solo'; freshBots(); startHand(); }
     else startOnline(() => hostCreate($('#tableName').value, $('#fillBots').checked));
   };
   $('#bJoinCode').onclick = () => { const c = $('#codeIn').value.trim().toLowerCase(); if (/^[a-z0-9][a-z0-9_.-]{0,47}$/.test(c)) startOnline(() => clientJoin(c)); else { $('#netErr').textContent = 'Escribe un código válido, por ejemplo mesa-ab12c.'; $('#netErr').hidden = false; } };
