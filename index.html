@@ -168,7 +168,11 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .helpbox b{color:var(--gold);font-weight:800}
 
 /* start menu */
-.startbox{width:min(560px,94vw);height:auto;align-self:center}
+.startbox{width:min(560px,94vw);height:auto;align-self:center;transition:width .3s ease}
+.startbox.wide{width:min(940px,96vw)}
+.startbox .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:22px;align-items:start}
+.startbox .col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.startbox .col .sect{border-top:0;padding-top:0;margin-top:0}
 .startbox > .in{height:auto}
 .startbox .in{padding:24px 28px;display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - 40px);overflow-y:auto}
 .scr{display:flex;flex-direction:column;gap:14px}
@@ -213,7 +217,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .tbl b{color:var(--gold);user-select:text}
 .tag .nm{font-family:var(--f-title);font-weight:800;font-size:14px;color:#fff;background:rgba(0,0,0,.6);padding:0 8px;border-radius:5px;white-space:nowrap}
 .logo{display:flex;flex-direction:column;align-items:center;line-height:.9;text-align:center;pointer-events:none;animation:logoIn .7s cubic-bezier(.2,.9,.25,1.1) both}
-.logo .l1,.logo .l2{font-family:var(--f-title);font-weight:800;letter-spacing:.06em;
+.logo .l1,.logo .l2{font-family:var(--f-title);font-weight:800;letter-spacing:.06em;-webkit-text-stroke:2px #fff;paint-order:stroke fill;
   background:linear-gradient(180deg,#fff6cf 0%,var(--brass-hi) 35%,var(--brass) 60%,var(--brass-lo) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 4px 0 rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(240,204,106,.35))}
 .logo .l1{font-size:clamp(28px,3.4vw,46px);letter-spacing:.3em;margin-right:-.3em}
@@ -314,15 +318,19 @@ html.inmenu .bottom > *{transition-delay:0s}
 
       <section class="scr" id="scrSetup" hidden>
         <div class="scrhead"><button class="btn tiny" id="backSetup">◀ VOLVER</button><h3 id="setupTitle">PARTIDA SOLO</h3></div>
-        <div id="botCfg">
-          <div class="sect">PERSONALIDAD DE LOS BOTS</div>
-          <div class="botgrid" id="botRows"></div>
-          <div class="persdesc" id="persDesc"></div>
+        <div class="cols">
+          <div class="col" id="botCfg">
+            <div class="sect">PERSONALIDAD DE LOS BOTS</div>
+            <div class="botgrid" id="botRows"></div>
+            <div class="persdesc" id="persDesc"></div>
+          </div>
+          <div class="col">
+            <div class="sect">OPCIONES</div>
+            <label class="opt" for="optManual"><input type="checkbox" id="optManual"><span><b>Elegir mis cartas a mano</b><small>Tocas las 5 cartas de tu jugada. Desactivado, el juego usa siempre tu mejor jugada.</small></span></label>
+            <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Ayuda de jugada</b><small>Muestra la jugada recomendada y tu probabilidad de ganar.</small></span></label>
+            <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
+          </div>
         </div>
-        <div class="sect">OPCIONES</div>
-        <label class="opt" for="optManual"><input type="checkbox" id="optManual"><span><b>Elegir mis cartas a mano</b><small>Tocas las 5 cartas de tu jugada. Desactivado, el juego usa siempre tu mejor jugada.</small></span></label>
-        <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Ayuda de jugada</b><small>Muestra la jugada recomendada y tu probabilidad de ganar.</small></span></label>
-        <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
       </section>
 
       <section class="scr" id="scrOnline" hidden>
@@ -1211,7 +1219,7 @@ function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); 
 function setMenu(open){ $('#startOv').hidden = !open; document.documentElement.classList.toggle('inmenu', open); }
 function setManual(v){ G.manual = v; $('#manualT').checked = v; $('#optManual').checked = v; try { localStorage.setItem('mv-manual', v ? '1' : '0'); } catch(e){} if (!v){ G.sel = new Set(); sendSel(); } render(); }
 function setHelp(v){ G.help = v; $('#helpT').checked = v; $('#optHelp').checked = v; try { localStorage.setItem('mv-help', v ? '1' : '0'); } catch(e){} render(); }
-function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; }
+function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', id === '#scrSetup'); }
 function persDesc(){
   const used = [...new Set(G.botPrefs)];
   $('#persDesc').innerHTML = used.map(id => { const p = PERS.find(x => x.id === id); return `<b>${p.name}</b>: ${p.desc}`; }).join('<br>');
