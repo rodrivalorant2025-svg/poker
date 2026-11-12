@@ -72,6 +72,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .result .rl b{color:var(--gold);font-weight:800}
 .result .rl b.combo{color:#fff;text-transform:uppercase;font-family:var(--f-title);font-size:15px}
 .result .dimtxt{opacity:.8;font-size:12.5px}
+.result .potlbl{font-family:var(--f-title);font-weight:800;font-size:11px;letter-spacing:.1em;color:var(--ink);background:var(--gold);border-radius:4px;padding:1px 6px;margin-right:4px;text-shadow:none}
 .result .rc{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-items:center}
 .result .rk{font-size:11px;color:var(--dim);margin:0 4px 0 8px;text-transform:uppercase;letter-spacing:.08em}
 .mc{display:inline-grid;place-items:center;min-width:34px;height:44px;padding:0 4px;border-radius:5px;background:var(--card);color:var(--ink);font-family:var(--f-title);font-weight:800;font-size:17px;text-shadow:none;opacity:.55;box-shadow:0 2px 3px rgba(0,0,0,.4)}
@@ -139,6 +140,9 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .grp{display:flex;flex-direction:column;gap:3px}
 .grp .cs{display:flex;gap:4px}
 .sep{width:2px;align-self:stretch;background:rgba(217,180,90,.45)}
+.mychips{align-self:stretch;justify-content:space-between}
+.chipval{display:flex;align-items:center;gap:7px;height:calc(var(--cw)*1.4);font-family:var(--f-title);font-weight:800;font-size:clamp(17px,1.6vw,24px);color:var(--gold);font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+.chipico{width:20px;height:20px;border-radius:50%;flex:none;background:radial-gradient(circle,var(--red) 0 42%,#f2ede2 43% 52%,var(--red) 53%);box-shadow:0 0 0 2px #f2ede2 inset,0 2px 3px rgba(0,0,0,.5)}
 .hc{width:var(--cw);aspect-ratio:5/7;border-radius:5px;background:var(--card);color:var(--ink);position:relative;flex:none;text-shadow:none;font-family:var(--f-title);font-weight:800;
   box-shadow:inset 0 0 0 1px #cfc5ad,0 2px 3px rgba(0,0,0,.45)}
 .hc .r{position:absolute;left:9%;top:5%;font-size:calc(var(--cw)*.42);line-height:1}
@@ -294,6 +298,8 @@ html.inmenu .bottom > *{transition-delay:0s}
       <span data-s="preflop">PRE-FLOP</span><span data-s="flop">FLOP</span><span data-s="turn">TURN</span><span data-s="river">RIVER</span><span data-s="showdown">SHOWDOWN</span>
     </div>
     <div class="cardrow">
+      <div class="grp mychips"><span class="ttl">TUS FICHAS</span><div class="chipval"><span class="chipico" aria-hidden="true"></span><span id="myChips2">$1.000</span></div></div>
+      <div class="sep"></div>
       <div class="grp"><span class="ttl">TU MANO</span><div class="cs" id="myCards"></div></div>
       <div class="sep"></div>
       <div class="grp"><span class="ttl">MESA</span><div class="cs" id="boardCards"></div></div>
@@ -814,21 +820,19 @@ function showdown(){
   }
   let left = 0; for (const p of all) left += Math.max(0, p.total - prev);
   if (left && pots.length) pots[pots.length-1].amt += left;
-  const won = new Map(); G.result = {byFold:false, winners:[]};
+  const won = new Map(); G.result = {byFold:false, winners:[], pots:[], returns:[]};
   const order = p => (G.players.indexOf(p) - G.dealer - 1 + N) % N;
   pots.forEach((pot, i) => {
     const top = Math.max(...pot.elig.map(p => p.best.score));
     const ws = pot.elig.filter(p => p.best.score === top).sort((a,b) => order(a) - order(b));
     const share = Math.floor(pot.amt / ws.length);
-    ws.forEach((w, k) => { const x = share + (k === 0 ? pot.amt - share*ws.length : 0); w.chips += x; won.set(w, (won.get(w)||0) + x); });
+    const contested = pot.elig.length > 1;
+    ws.forEach((w, k) => { const x = share + (k === 0 ? pot.amt - share*ws.length : 0); w.chips += x; if (contested) won.set(w, (won.get(w)||0) + x); });
+    if (contested) G.result.pots.push({amt:pot.amt, ws:ws.slice()});
+    else G.result.returns.push({p:ws[0], amt:pot.amt});   // an over-bet nobody could call goes back to its owner
     if (i === 0) ws.forEach(w => coreCards(w.best).forEach(c => G.hi.add(key(c))));
   });
-  const parts = [];
-  for (const [w, x] of won){
-    if (!pots.some(pt => pt.elig.length > 1 && pt.elig.includes(w))) continue;
-    w.win = true;
-    G.result.winners.push({p:w, amt:x});
-  }
+  for (const [w, x] of won){ w.win = true; G.result.winners.push({p:w, amt:x}); }
   return endHand();
 }
 function mini(c, on){ const red = c.s === 1 || c.s === 2; return `<span class="mc${red ? ' red' : ''}${on ? ' on' : ''}">${RS(c.r)}${SUITS[c.s]}</span>`; }
@@ -838,8 +842,26 @@ function showResult(){
   const iWon = R0.winners.some(w => w.p === me);
   const box = $('#result'); box.className = 'result panel ' + (net > 0 ? 'good' : net < 0 ? 'bad' : 'even');
   let title = net > 0 ? `¡HAS GANADO ${fmt(net)}!` : net < 0 ? `HAS PERDIDO ${fmt(-net)}` : (me.folded ? 'NO HAS PERDIDO NADA' : 'RECUPERAS LO QUE APOSTASTE');
-  const lines = R0.winners.map(({p, amt}) => {
-    const other = p !== me; const name = other ? (p.kind === 'bot' ? cap(who(p)) : p.name) : 'Tú';
+  const nameOf = p => p !== me ? (p.kind === 'bot' ? cap(who(p)) : p.name) : 'Tú';
+  const cardsOf = p => { if (!p.best) return ''; const core = new Set(coreCards(p.best).map(key));
+    return `<div class="rc"><span class="rk">${p !== me ? `Cartas de ${esc(nameOf(p))}` : 'Tus cartas'}</span>${p.hole.map(c => mini(c, core.has(key(c)))).join('')}<span class="rk">Jugada</span>${p.best.cards.map(c => mini(c, core.has(key(c)))).join('')}</div>`; };
+  const potLine = (pt, label) => {
+    const ws = pt.ws;
+    if (ws.length > 1){
+      const each = Math.floor(pt.amt / ws.length);
+      return `<div class="rl">${label}<b>Empate</b>: ${ws.map(w => `<b>${esc(nameOf(w))}</b>`).join(' y ')} ${ws.includes(me) ? 'tenéis' : 'tienen'} la misma jugada${ws[0].best ? ` (<b class="combo">${describe(ws[0].best).toLowerCase()}</b>)` : ''} y se reparten ${fmt(pt.amt)}: ${fmt(each)} cada uno.</div>` + ws.map(cardsOf).join('');
+    }
+    const w = ws[0], other = w !== me;
+    return `<div class="rl">${label}<b>${esc(nameOf(w))}</b> ${other ? 'gana' : 'ganas'} ${fmt(pt.amt)}${w.best ? ` con <b class="combo">${describe(w.best).toLowerCase()}</b>` : ''}</div>` + cardsOf(w);
+  };
+  let lines;
+  if (!R0.byFold && R0.pots && R0.pots.length){
+    const multi = R0.pots.length > 1;
+    lines = R0.pots.map((pt, i) => potLine(pt, multi ? `<span class="potlbl">${i === 0 ? 'BOTE PRINCIPAL' : 'BOTE SECUNDARIO'}</span> ` : '')).join('');
+    if (multi) lines += '<div class="rl dimtxt">Hay más de un bote porque alguien fue all-in con menos fichas: solo puede ganar la parte que pudo igualar. El resto se lo juegan los demás.</div>';
+    for (const x of R0.returns || []) lines += `<div class="rl dimtxt">${x.p === me ? 'Recuperas' : `${esc(nameOf(x.p))} recupera`} ${fmt(x.amt)} que ${x.p === me ? 'apostaste' : 'apostó'} de más y nadie pudo igualar.</div>`;
+  } else lines = R0.winners.map(({p, amt}) => {
+    const other = p !== me; const name = nameOf(p);
     if (R0.byFold) return `<div class="rl"><b>${name}</b> ${other ? 'se lleva' : 'te llevas'} el bote de ${fmt(amt)} porque todos los demás se retiraron. ${other ? 'No tiene que enseñar sus cartas.' : ''}</div>`;
     if (!p.best) return `<div class="rl"><b>${name}</b> ${other ? 'gana' : 'ganas'} ${fmt(amt)}</div>`;
     const core = new Set(coreCards(p.best).map(key));
@@ -1155,7 +1177,8 @@ function sendState(){
     P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:p.peer || '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
       c:p.chips, s0:p.s0 || 0, b:p.bet, t:p.total, f:p.folded ? 1 : 0, a:p.allIn ? 1 : 0, o:p.out ? 1 : 0, l:p.last, cr:p.canReraise ? 1 : 0, w:p.win ? 1 : 0,
       hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
-  if (G.result) S.rs = {f:G.result.byFold ? 1 : 0, w:G.result.winners.map(w => [G.players.indexOf(w.p), w.amt])};
+  if (G.result) S.rs = {f:G.result.byFold ? 1 : 0, w:G.result.winners.map(w => [G.players.indexOf(w.p), w.amt]),
+    p:(G.result.pots || []).map(pt => [pt.amt, pt.ws.map(w => G.players.indexOf(w))]), r:(G.result.returns || []).map(x => [G.players.indexOf(x.p), x.amt])};
   NET.table.presence({role:'host', pub:myPub, S}).catch(() => {});
 }
 function lobbyAnnounce(){
@@ -1303,7 +1326,9 @@ async function applyState(S){
   G.muck = []; ps.forEach(p => { if (p.folded) p.hole.forEach(c => G.muck.push(key(c))); });
   G.hi = new Set();
   if (S.rs && Array.isArray(S.rs.w)){
-    G.result = {byFold:!!S.rs.f, winners:S.rs.w.map(([i, amt]) => ({p:ps[V(i)], amt:+amt || 0})).filter(w => w.p)};
+    G.result = {byFold:!!S.rs.f, winners:S.rs.w.map(([i, amt]) => ({p:ps[V(i)], amt:+amt || 0})).filter(w => w.p),
+      pots:(Array.isArray(S.rs.p) ? S.rs.p : []).map(([amt, ws]) => ({amt:+amt || 0, ws:(Array.isArray(ws) ? ws : []).map(i => ps[V(i)]).filter(Boolean)})).filter(pt => pt.ws.length),
+      returns:(Array.isArray(S.rs.r) ? S.rs.r : []).map(([i, amt]) => ({p:ps[V(i)], amt:+amt || 0})).filter(x => x.p)};
     const used = p => { const cs = decodes(p.bc); return cs.length === 5 ? evalPick(cs) : (p.hole.length === 2 && !p.hole[0].hid && G.board.length === 5 ? best(p.hole.concat(G.board)) : null); };
     if (!G.result.byFold) G.result.winners.forEach(w => { w.p.best = used(w.p); if (w.p.best) coreCards(w.p.best).forEach(c => G.hi.add(key(c))); });
     const me = ps[0]; if (!me.folded && me.hole.length === 2 && !me.hole[0].hid && G.board.length === 5){ me.best = used(me); me.autoBest = best(me.hole.concat(G.board)); }
@@ -1878,6 +1903,7 @@ function render(){
   const dEl = $('#debt'); dEl.textContent = fmt(me.debt || 0); dEl.className = 'val' + (me.debt > 0 ? ' down' : '');
   const netEl = $('#net'); netEl.textContent = (net > 0 ? '+' : net < 0 ? '−' : '') + fmt(Math.abs(net)); netEl.className = 'val' + (net > 0 ? ' up' : net < 0 ? ' down' : '');
   $('#myChips').textContent = fmt(me.chips);
+  $('#myChips2').textContent = fmt(me.chips);
   renderControls();
   if (G.mode === 'host') broadcast();
 }
