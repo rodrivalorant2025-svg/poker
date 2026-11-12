@@ -201,6 +201,8 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .botgrid .all{font-family:var(--f-title);font-weight:800;color:var(--gold);letter-spacing:.06em}
 .persdesc{font-size:12.5px;line-height:1.5;color:var(--dim);background:rgba(0,0,0,.25);border-radius:8px;padding:9px 11px}
 .persdesc b{color:var(--txt)}
+.optrow{display:flex;flex-wrap:wrap;gap:8px 22px;background:rgba(0,0,0,.22);border-radius:9px;padding:11px 12px}
+.optrow .chk{font-size:15px;color:var(--txt)}
 .opt{display:flex;gap:11px;align-items:flex-start;cursor:pointer;background:rgba(0,0,0,.22);border-radius:9px;padding:11px 12px}
 .opt input{accent-color:var(--brass);margin-top:3px;width:16px;height:16px;flex:none}
 .opt span{display:flex;flex-direction:column;gap:3px}
@@ -310,6 +312,7 @@ html.inmenu .bottom > *{transition-delay:0s}
     <div class="tbl" id="tableInfo" hidden></div>
     <label for="helpT"><input type="checkbox" id="helpT" checked> AYUDA DE JUGADA</label>
     <label for="manualT"><input type="checkbox" id="manualT" checked> ELEGIR CARTAS A MANO</label>
+    <label for="soundT"><input type="checkbox" id="soundT" checked> SONIDO</label>
     <div class="row">
       <label for="fast" id="fastL"><input type="checkbox" id="fast"> BOTS RÁPIDOS</label>
       <button class="btn tiny" id="bHelp">¿CÓMO SE JUEGA?</button>
@@ -342,6 +345,7 @@ html.inmenu .bottom > *{transition-delay:0s}
             <div class="sect">OPCIONES</div>
             <label class="opt" for="optManual"><input type="checkbox" id="optManual"><span><b>Elegir mis cartas a mano</b><small>Tocas las 5 cartas de tu jugada. Desactivado, el juego usa siempre tu mejor jugada.</small></span></label>
             <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Ayuda de jugada</b><small>Muestra la jugada recomendada y tu probabilidad de ganar.</small></span></label>
+            <div class="optrow"><label class="chk" for="optSound"><input type="checkbox" id="optSound"> <b>Sonido</b></label><label class="chk" for="optAmb"><input type="checkbox" id="optAmb"> <b>Ambiente del casino</b></label></div>
             <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
           </div>
         </div>
@@ -875,6 +879,7 @@ function showResult(){
   box.innerHTML = `<div class="in"><div class="rt">${title}</div>${lines}${kick}${choice}${pay}${why}</div>`;
   box.hidden = false;
   $('#toasts').innerHTML = '';
+  if (net > 0) sfx.win(); else if (net < 0) sfx.lose();
 }
 function repayDebts(){
   for (const p of G.players){
@@ -990,6 +995,93 @@ onPress('#bHelp', () => { $('#helpOv').hidden = false; });
 onPress('#bHelpClose', () => { $('#helpOv').hidden = true; });
 $('#helpOv').addEventListener('click', e => { if (e.target.id === 'helpOv') $('#helpOv').hidden = true; });
 $('#fast').onchange = e => { G.fast = e.target.checked; e.target.blur(); };
+
+/* =================== sound (synthesised with Web Audio: no files to download) =================== */
+const SFX = {ctx:null, out:null, amb:null, noise:null, on:true, ambOn:true, lastCard:0, lastAct:0, seen:[]};
+function audioInit(){
+  if (SFX.ctx) return;
+  const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+  try {
+    const ctx = SFX.ctx = new C();
+    SFX.out = ctx.createGain(); SFX.out.gain.value = SFX.on ? 0.8 : 0; SFX.out.connect(ctx.destination);
+    const len = ctx.sampleRate; const buf = ctx.createBuffer(1, len, ctx.sampleRate); const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    SFX.noise = buf;
+    startAmbience();
+  } catch(e){ SFX.ctx = null; }
+}
+function now(){ return SFX.ctx.currentTime; }
+function env(g, t, peak, attack, dur){ g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+function noiseHit({at = 0, dur = 0.08, freq = 2500, q = 1, type = 'bandpass', peak = 0.3, sweepTo = null, pan = 0}){
+  const ctx = SFX.ctx, t = now() + at;
+  const src = ctx.createBufferSource(); src.buffer = SFX.noise; src.playbackRate.value = 0.8 + Math.random() * 0.4;
+  const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+  if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
+  const g = ctx.createGain(); env(g, t, peak, 0.004, dur);
+  let node = g; if (ctx.createStereoPanner && pan){ const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); node = p; }
+  src.connect(f); f.connect(g); node.connect(SFX.out);
+  src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+}
+function tone({at = 0, f = 440, dur = 0.2, type = 'sine', peak = 0.15, slideTo = null, attack = 0.005, pan = 0}){
+  const ctx = SFX.ctx, t = now() + at;
+  const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  const g = ctx.createGain(); env(g, t, peak, attack, dur);
+  let node = g; if (ctx.createStereoPanner && pan){ const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); node = p; }
+  o.connect(g); node.connect(SFX.out); o.start(t); o.stop(t + dur + 0.05);
+}
+const ready = () => SFX.ctx && SFX.on && SFX.ctx.state === 'running';
+const sfx = {
+  card(){ if (!ready()) return; const t = performance.now(); if (t - SFX.lastCard < 45) return; SFX.lastCard = t;
+    noiseHit({dur:0.06, freq:3200, q:0.7, peak:0.22}); noiseHit({at:0.03, dur:0.05, freq:1800, q:1.2, peak:0.12}); },
+  chips(n = 2){ if (!ready()) return;
+    for (let k = 0; k < Math.min(n, 6); k++){ const at = k * (0.035 + Math.random() * 0.03);
+      tone({at, f:2600 + Math.random() * 900, dur:0.05, type:'triangle', peak:0.07}); noiseHit({at, dur:0.03, freq:5200, q:2, peak:0.12, type:'highpass'}); } },
+  knock(){ if (!ready()) return; for (const at of [0, 0.13]){ tone({at, f:150, slideTo:85, dur:0.09, peak:0.35}); noiseHit({at, dur:0.05, freq:500, type:'lowpass', peak:0.25}); } },
+  fold(){ if (!ready()) return; noiseHit({dur:0.28, freq:2200, sweepTo:350, type:'lowpass', q:0.6, peak:0.2}); },
+  allin(){ if (!ready()) return; this.chips(6); tone({at:0.05, f:90, slideTo:55, dur:0.45, peak:0.3}); },
+  turn(){ if (!ready()) return; tone({f:880, dur:0.55, peak:0.1}); tone({at:0.09, f:1318, dur:0.6, peak:0.07}); },
+  win(){ if (!ready()) return; [523, 659, 784, 1047].forEach((f, i) => tone({at:i * 0.11, f, dur:0.38, type:'triangle', peak:0.12})); this.chips(5); },
+  lose(){ if (!ready()) return; tone({f:330, slideTo:247, dur:0.45, type:'triangle', peak:0.1}); tone({at:0.22, f:247, slideTo:185, dur:0.6, type:'triangle', peak:0.09}); },
+  click(){ if (!ready()) return; tone({f:1400, dur:0.035, peak:0.05}); },
+  action(last){
+    if (!last) return; const t = performance.now(); if (t - SFX.lastAct < 70) return; SFX.lastAct = t;
+    if (last.startsWith('Fold')) this.fold();
+    else if (last.startsWith('Check')) this.knock();
+    else if (last.startsWith('All-in')) this.allin();
+    else if (last.startsWith('Bet') || last.startsWith('Raise')) this.chips(4);
+    else if (last.startsWith('Call')) this.chips(2);
+    else if (last.includes('blind')) this.chips(1);
+  },
+};
+// quiet casino room: filtered noise bed + an occasional far-away slot machine
+function startAmbience(){
+  const ctx = SFX.ctx;
+  const src = ctx.createBufferSource(); src.buffer = SFX.noise; src.loop = true;
+  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 420;
+  const g = ctx.createGain(); g.gain.value = SFX.ambOn ? 0.05 : 0;
+  src.connect(f); f.connect(g); g.connect(SFX.out); src.start();
+  SFX.amb = g;
+  const slot = () => {
+    if (SFX.ctx && SFX.on && SFX.ambOn && SFX.ctx.state === 'running' && !document.hidden){
+      const base = [784, 988, 1175, 1319][Math.random() * 4 | 0], pan = Math.random() * 1.6 - 0.8;
+      for (let i = 0; i < 4; i++) tone({at:i * 0.09, f:base * (1 + (i % 2) * 0.25), dur:0.12, type:'square', peak:0.008, pan});
+    }
+    setTimeout(slot, 9000 + Math.random() * 16000);
+  };
+  setTimeout(slot, 6000);
+}
+function setSound(on){ SFX.on = on; try { localStorage.setItem('mv-sound', on ? '1' : '0'); } catch(e){}
+  if (SFX.out) SFX.out.gain.setTargetAtTime(on ? 0.8 : 0, now(), 0.05);
+  document.querySelectorAll('#soundT, #optSound').forEach(el => el.checked = on); }
+function setAmb(on){ SFX.ambOn = on; try { localStorage.setItem('mv-amb', on ? '1' : '0'); } catch(e){}
+  if (SFX.amb) SFX.amb.gain.setTargetAtTime(on ? 0.05 : 0, now(), 0.3);
+  document.querySelectorAll('#optAmb').forEach(el => el.checked = on); }
+try { SFX.on = localStorage.getItem('mv-sound') !== '0'; SFX.ambOn = localStorage.getItem('mv-amb') !== '0'; } catch(e){}
+// browsers only allow audio after the first click or key press
+const unlock = () => { audioInit(); if (SFX.ctx && SFX.ctx.state === 'suspended') SFX.ctx.resume(); };
+addEventListener('pointerdown', unlock, true); addEventListener('keydown', unlock, true);
+document.addEventListener('click', e => { if (e.target.closest('.btn, .sw, .hc.pick')) sfx.click(); }, true);
 
 /* =================== online tables =================== */
 const HUMAN_LOOKS = [
@@ -1286,6 +1378,10 @@ function setupMenu(){
   $('#helpT').onchange = e => setHelp(e.target.checked);
   $('#optHelp').onchange = e => setHelp(e.target.checked);
   $('#manualT').onchange = e => setManual(e.target.checked);
+  $('#soundT').checked = $('#optSound').checked = SFX.on; $('#optAmb').checked = SFX.ambOn;
+  $('#soundT').onchange = e => setSound(e.target.checked);
+  $('#optSound').onchange = e => setSound(e.target.checked);
+  $('#optAmb').onchange = e => setAmb(e.target.checked);
   $('#optManual').onchange = e => setManual(e.target.checked);
   buildBotRows();
   try { const a = JSON.parse(localStorage.getItem('mv-avatar') || 'null'); if (a) G.av = cleanAv(a); } catch(e){}
@@ -1755,6 +1851,7 @@ function layoutTags(){
 const setDis = (id, off) => { $(id).disabled = off; };
 function render(){
   syncScene();
+  G.players.forEach((p, i) => { const k = (p.name || '') + '|' + i; if (SFX.seen[i] !== undefined && SFX.seen[i].k === k && SFX.seen[i].last !== p.last && p.last) sfx.action(p.last); SFX.seen[i] = {k, last:p.last}; });
   G.players.forEach((p, i) => {
     if (i === 0) return;
     const el = seats[i].tag;
@@ -1787,6 +1884,7 @@ function render(){
 function renderControls(){
   const me = G.players[0];
   const myTurn = !!G.waiting;
+  if (myTurn && !SFX.wasTurn) sfx.turn(); SFX.wasTurn = myTurn;
   const broke = me.chips <= 0 && me.kind !== 'empty' && (G.handOver || me.out) && !(G.mode === 'client' && !NET.seated);
   const watching = G.mode === 'client' && !NET.seated;
   $('#acts').hidden = G.handOver || watching;
@@ -1882,7 +1980,7 @@ function frame(){
   acc += dt; if (acc < 1/60 - 0.002) return; const step = Math.min(acc, 0.1); acc = 0; watchSpeed(step);
   for (const m of cardMeshes.values()){
     const u = m.userData; if (u.settled) continue;
-    if (!u.launched){ u.launched = true; crState.dealT = t; }
+    if (!u.launched){ u.launched = true; crState.dealT = t; sfx.card(); }
     u.base.lerp(u.tp, 1 - Math.exp(-step*9));
     const dist = u.base.distanceTo(u.tp);
     m.position.copy(u.base); m.position.y += Math.min(dist, 0.8)*0.35;
