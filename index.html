@@ -1856,7 +1856,9 @@ DENOMS.forEach(([v, col]) => {
 const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new V3(1,1,1), _p = new V3();
 function buildStack(amount, dir){
   const g = new THREE.Group(); let left = amount; const cols = [];
-  for (const [v] of DENOMS){ let n = Math.floor(left / v); left -= n*v; while (n > 0){ const k = Math.min(n, 14); cols.push([v, k]); n -= k; } }
+  // small denominations so a stack visibly grows with the money; $500 chips only for very big stacks
+  const dens = amount > 6000 ? [500, 100, 25, 5] : [100, 25, 5];
+  for (const v of dens){ let n = Math.floor(left / v); left -= n*v; while (n > 0){ const k = Math.min(n, 12); cols.push([v, k]); n -= k; } }
   if (cols.length > 7) cols.length = 7;
   const perp = new V3(-dir.z, 0, dir.x);
   const byDen = {};
@@ -1943,7 +1945,7 @@ function syncScene(){
   }
   G.players.forEach((p, i) => {
     const dir = seatPos(i).clone().negate().normalize();
-    setStack('c'+i, p.out ? 0 : p.chips, i === 0 ? new V3(0.5, TOP, 1.0) : toward(i, 0.27, 0.32), dir);
+    setStack('c'+i, p.out ? 0 : p.chips, i === 0 ? new V3(0.5, TOP, 0.72) : toward(i, 0.27, 0.32), dir);
     setStack('b'+i, p.bet, i === 0 ? new V3(0, TOP, 0.42) : toward(i, 0.55, 0), dir);
   });
   const collected = potTotal() - G.players.reduce((a, p) => a + p.bet, 0);
