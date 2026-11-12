@@ -1,4 +1,4 @@
-# La Mesa Verde
+# Low Poly Poker
 
 Texas Hold'em en 3D con dinero ficticio, para navegador de PC.
 

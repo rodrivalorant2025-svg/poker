@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Texas Hold'em en 3D con dinero ficticio. Juega solo contra bots o con amigos online, sin cuenta.">
-<title>La Mesa Verde</title>
+<title>Low Poly Poker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap">
 <style>
@@ -285,7 +285,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
   <div class="helpov" id="startOv">
     <div class="startbox panel"><div class="in">
       <section class="scr" id="scrHome">
-        <h2>LA MESA VERDE</h2>
+        <h2>LOW POLY POKER</h2>
         <div class="sub">Texas Hold'em con dinero ficticio</div>
         <label class="fld" for="nameIn">TU NOMBRE<input id="nameIn" maxlength="14" autocomplete="off" placeholder="Jugador"></label>
         <div class="bigbtns">
@@ -357,6 +357,12 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
    everyone else connects to it directly with the table code. No accounts needed. */
 function makePeerRoom(){
   const PREFIX = 'lmv-';
+  // STUN finds a direct route; TURN relays traffic when two networks can't reach each other
+  const OPTS = {debug:1, config:{iceServers:[
+    {urls:['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302']},
+    {urls:['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username:'peerjs', credential:'peerjsp'},
+    {urls:['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username:'openrelayproject', credential:'openrelayproject'},
+  ]}};
   const noop = () => {};
   function mkRoom(name, peer, isHost, hostConn){
     const handlers = []; let roster = new Map(); let arr = Object.freeze([]); let mine = {};
@@ -410,10 +416,12 @@ function makePeerRoom(){
   }
   function openPeer(id){
     return new Promise((res, rej) => {
-      const peer = id ? new Peer(id) : new Peer();
-      const t = setTimeout(() => rej({code:'timeout'}), 12000);
+      const peer = id ? new Peer(id, OPTS) : new Peer(OPTS);
+      const t = setTimeout(() => rej({code:'servidor'}), 15000);
       peer.on('open', () => { clearTimeout(t); res(peer); });
       peer.on('error', e => { clearTimeout(t); rej({code:e && e.type || 'error'}); });
+      // keep the table reachable: if the link to the signalling server drops (idle or background tab), reconnect
+      peer.on('disconnected', () => { setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch(err){} }, 1500); });
     });
   }
   return {
@@ -427,8 +435,9 @@ function makePeerRoom(){
       const peer = await openPeer(null);
       const conn = await new Promise((res, rej) => {
         const c = peer.connect(PREFIX + name, {reliable:true});
-        const t = setTimeout(() => rej({code:'mesa-no-encontrada'}), 12000);
+        const t = setTimeout(() => rej({code:'sin-conexion'}), 25000);
         c.on('open', () => { clearTimeout(t); res(c); });
+        c.on('error', () => { clearTimeout(t); rej({code:'sin-conexion'}); });
         peer.on('error', e => { clearTimeout(t); rej({code:e && e.type === 'peer-unavailable' ? 'mesa-no-encontrada' : (e && e.type || 'error')}); });
       });
       return mkRoom(name, peer, false, conn);
@@ -1061,7 +1070,7 @@ async function hostCreate(name, fill){
   NET.table.onPeers(hostOnPeers);
   NET.table.presence({role:'host', pub:myPub}).catch(() => {});
   const link = location.origin + location.pathname + '?mesa=' + encodeURIComponent(NET.code);
-  $('#tableInfo').innerHTML = `Mesa <b>${esc(NET.tableName)}</b> · código <b>${esc(NET.code)}</b><br><button class="btn tiny" id="bCopy">COPIAR ENLACE DE INVITACIÓN</button>`;
+  $('#tableInfo').innerHTML = `Mesa <b>${esc(NET.tableName)}</b> · código <b>${esc(NET.code)}</b><br><button class="btn tiny" id="bCopy">COPIAR ENLACE DE INVITACIÓN</button><br><span class="dimtxt">Mantén esta página abierta: si la cierras o la recargas, la mesa se cierra.</span>`;
   $('#bCopy').onclick = () => { navigator.clipboard.writeText(link).then(() => { $('#bCopy').textContent = '¡ENLACE COPIADO!'; }, () => { prompt('Copia este enlace:', link); }); };
   $('#tableInfo').hidden = false;
   lobbyAnnounce();
@@ -1178,7 +1187,7 @@ function renderTables(peers){
 async function startOnline(fn){
   $('#netErr').hidden = true;
   try { saveName(); await fn(); $('#startOv').hidden = true; }
-  catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'No existe ninguna mesa abierta con ese código. Revisa el código o pide un enlace nuevo.' : e && e.code === 'unavailable-id' ? 'Ese código ya está en uso. Vuelve a intentarlo.' : 'No se pudo conectar (' + (e && e.code || 'error') + '). Inténtalo de nuevo.'; $('#netErr').hidden = false; }
+  catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'No hay ninguna mesa abierta con ese código. Quien la creó tiene que seguir con la página del juego abierta: si la cierra, la recarga o abre el enlace en esa misma pestaña, la mesa desaparece y hay que crear otra.' : e && e.code === 'sin-conexion' ? 'La mesa existe, pero no se pudo conectar con ella. Suele pasar con cortafuegos estrictos (wifi del trabajo o del instituto, algunas redes móviles). Prueba con otra red o vuelve a intentarlo.' : e && ['servidor','network','server-error','socket-error','socket-closed'].includes(e.code) ? 'No se pudo contactar con el servidor de mesas. Revisa tu conexión a internet e inténtalo de nuevo.' : e && e.code === 'unavailable-id' ? 'Ese código ya está en uso. Vuelve a intentarlo.' : 'No se pudo conectar (' + (e && e.code || 'error') + '). Inténtalo de nuevo.'; $('#netErr').hidden = false; }
 }
 function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); } catch(e){} }
 function setManual(v){ G.manual = v; $('#manualT').checked = v; $('#optManual').checked = v; try { localStorage.setItem('mv-manual', v ? '1' : '0'); } catch(e){} if (!v){ G.sel = new Set(); sendSel(); } render(); }
@@ -1298,7 +1307,7 @@ const neonTex = canvasTex(256, 64, (x, w, h) => {
   x.shadowColor = '#ff3d8b'; x.shadowBlur = 14; x.fillStyle = '#ff9cc6'; x.fillText('POKER', w/2, h/2+2);
 });
 const neon = M(new THREE.PlaneGeometry(2.2, 0.55), new THREE.MeshBasicMaterial({map:neonTex, blending:THREE.AdditiveBlending, transparent:true, fog:false}));
-neon.position.set(0, 2.7, -6.2); scene.add(neon);
+neon.position.set(0, 2.56, -6.2); scene.add(neon);
 // slot machines along the back wall
 const slotGeo = new THREE.BoxGeometry(0.7, 1.6, 0.6);
 const screenGeo = new THREE.PlaneGeometry(0.5, 0.4);
@@ -1321,8 +1330,7 @@ const feltTex = canvasTex(512, 512, (x, w, h) => {
   x.strokeStyle = '#e8c35a'; x.lineWidth = 3; x.beginPath(); x.arc(w/2, h/2, w*0.39, 0, Math.PI*2); x.stroke();
   x.save(); x.translate(w/2, h*0.22); x.scale(0.62, 1);
   x.fillStyle = 'rgba(232,195,90,.75)'; x.font = '700 38px "Barlow Condensed", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('LA MESA VERDE', 0, 0);
-  x.font = '700 17px "Barlow Condensed", Arial, sans-serif'; x.fillStyle = 'rgba(232,195,90,.55)'; x.fillText('TEXAS HOLD’EM  ·  CIEGAS 10 / 20', 0, 30);
+  x.font = '700 17px "Barlow Condensed", Arial, sans-serif'; x.fillStyle = 'rgba(232,195,90,.55)'; x.fillText('TEXAS HOLD’EM  ·  CIEGAS 10 / 20', 0, 0);
   x.restore();
 });
 feltTex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
