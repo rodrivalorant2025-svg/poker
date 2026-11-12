@@ -1226,7 +1226,9 @@ function setAmb(on){ SFX.ambOn = on; try { localStorage.setItem('mv-amb', on ? '
 try { SFX.on = localStorage.getItem('mv-sound') !== '0'; SFX.ambOn = localStorage.getItem('mv-amb') !== '0'; } catch(e){}
 // browsers only allow audio after the first click or key press
 const unlock = () => { audioInit(); if (SFX.ctx && SFX.ctx.state === 'suspended') SFX.ctx.resume(); };
-addEventListener('pointerdown', unlock, true); addEventListener('keydown', unlock, true);
+addEventListener('pointerdown', unlock, true); addEventListener('keydown', unlock, true); addEventListener('touchstart', unlock, true);
+// try to start the ambience as soon as the page loads; browsers that allow it (the site was played before) will, the rest start at the first click or key
+audioInit(); if (SFX.ctx && SFX.ctx.state === 'suspended') SFX.ctx.resume().catch(() => {});
 document.addEventListener('click', e => { if (e.target.closest('.btn, .sw, .hc.pick')) sfx.click(); }, true);
 
 /* =================== online tables =================== */
