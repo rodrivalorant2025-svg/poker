@@ -309,7 +309,6 @@ html.inmenu .bottom > *{transition-delay:0s}
 
   <div class="info panel"><div class="in">
     <div class="stats">
-      <span class="lbl">FICHAS</span><span class="val big" id="myChips">$1.000</span>
       <span class="lbl">BOTE</span><span class="val" id="pot">$0</span>
       <span class="lbl">MANO</span><span class="val" id="handNo">0</span>
       <span class="lbl">DEUDA</span><span class="val" id="debt">$0</span>
@@ -597,22 +596,57 @@ function describeHole(h){
   const hi = Math.max(h[0].r,h[1].r), lo = Math.min(h[0].r,h[1].r);
   return `${NAME(hi)} y ${NAME(lo)}` + (h[0].s===h[1].s ? ' del mismo palo' : '');
 }
+// fast 7-card evaluator: same ordering and score as best(cards).score, without building the 21 five-card combinations
+const S7_CNT = new Int8Array(15), S7_SC = new Int8Array(4), S7_SM = new Int32Array(4);
+function s7Straight(mask){
+  if (mask & (1 << 14)) mask |= 2;               // ace also plays low
+  for (let h = 14; h >= 5; h--) if (((mask >> (h - 4)) & 31) === 31) return h;
+  return 0;
+}
+function s7Pack(cat, a, b, c, d, e){ return ((((cat * 15 + a) * 15 + b) * 15 + c) * 15 + d) * 15 + e; }
+function score7(cs){
+  S7_CNT.fill(0); S7_SC.fill(0); S7_SM.fill(0);
+  let mask = 0;
+  for (let i = 0; i < cs.length; i++){ const c = cs[i]; S7_CNT[c.r]++; S7_SC[c.s]++; S7_SM[c.s] |= 1 << c.r; mask |= 1 << c.r; }
+  let fs = -1; for (let s = 0; s < 4; s++) if (S7_SC[s] >= 5) fs = s;
+  if (fs >= 0){ const sf = s7Straight(S7_SM[fs]); if (sf) return s7Pack(8, sf, 0, 0, 0, 0); }
+  let q = 0, t1 = 0, t2 = 0, p1 = 0, p2 = 0, p3 = 0;
+  for (let r = 14; r >= 2; r--){
+    const n = S7_CNT[r];
+    if (n === 4) q = r;
+    else if (n === 3){ if (!t1) t1 = r; else if (!t2) t2 = r; }
+    else if (n === 2){ if (!p1) p1 = r; else if (!p2) p2 = r; else if (!p3) p3 = r; }
+  }
+  const top = (skipA, skipB, k) => { const out = []; for (let r = 14; r >= 2 && out.length < k; r--) if (S7_CNT[r] && r !== skipA && r !== skipB) out.push(r); while (out.length < 5) out.push(0); return out; };
+  if (q){ const k = top(q, 0, 1); return s7Pack(7, q, k[0], 0, 0, 0); }
+  if (t1 && (t2 || p1)) return s7Pack(6, t1, t2 > p1 ? t2 : p1, 0, 0, 0);
+  if (fs >= 0){ const out = []; for (let r = 14; r >= 2 && out.length < 5; r--) if (S7_SM[fs] & (1 << r)) out.push(r); return s7Pack(5, out[0], out[1], out[2], out[3], out[4]); }
+  const st = s7Straight(mask); if (st) return s7Pack(4, st, 0, 0, 0, 0);
+  if (t1){ const k = top(t1, 0, 2); return s7Pack(3, t1, k[0], k[1], 0, 0); }
+  if (p1 && p2){ const k = top(p1, p2, 1); return s7Pack(2, p1, p2, k[0], 0, 0); }
+  if (p1){ const k = top(p1, 0, 3); return s7Pack(1, p1, k[0], k[1], k[2], 0); }
+  const k = top(0, 0, 5); return s7Pack(0, k[0], k[1], k[2], k[3], k[4]);
+}
 function equity(hole, board, nOpp, iters){
   if (nOpp <= 0) return 1;
   const known = new Set(hole.concat(board).map(key));
   const rest = [];
   for (let s=0;s<4;s++) for (let r=2;r<=14;r++) if (!known.has(r+'-'+s)) rest.push({r,s});
-  const need = nOpp*2 + 5 - board.length;
+  const need = nOpp*2 + 5 - board.length, nb = board.length;
+  const mine = new Array(7), theirs = new Array(7);   // reused every sample: no garbage per iteration
+  mine[0] = hole[0]; mine[1] = hole[1];
+  for (let k=0;k<nb;k++){ mine[2+k] = board[k]; theirs[2+k] = board[k]; }
   let win = 0;
   for (let i=0;i<iters;i++){
     for (let j=0;j<need;j++){ const x = j + (Math.random()*(rest.length-j)|0); const t = rest[j]; rest[j] = rest[x]; rest[x] = t; }
-    const b = board.concat(rest.slice(nOpp*2, need));
-    const my = best(hole.concat(b)).score;
+    for (let k=nb;k<5;k++){ const c = rest[nOpp*2 + k - nb]; mine[2+k] = c; theirs[2+k] = c; }
+    const my = score7(mine);
     let ties = 0, lose = false;
     for (let o=0;o<nOpp;o++){
-      const s = best([rest[2*o], rest[2*o+1]].concat(b)).score;
-      if (s > my){ lose = true; break; }
-      if (s === my) ties++;
+      theirs[0] = rest[2*o]; theirs[1] = rest[2*o+1];
+      const sc = score7(theirs);
+      if (sc > my){ lose = true; break; }
+      if (sc === my) ties++;
     }
     if (!lose) win += 1/(ties+1);
   }
@@ -641,7 +675,7 @@ function makeBot(seat){
   return newPlayer(o);
 }
 function emptySeat(){ return Object.assign(newPlayer({name:''}), {kind:'empty', chips:0, out:true}); }
-function newPlayer(o){ return {name:o.name, kind:o.kind || (o.isBot ? 'bot' : 'me'), peer:o.peer || null, pub:o.pub || '', debt:0, loans:0, repaid:0, left:false, enc:'', s0:0, tight:o.tight, aggr:o.aggr, bluff:o.bluff, look:o.look, isBot:!!o.isBot,
+function newPlayer(o){ return {name:o.name, kind:o.kind || (o.isBot ? 'bot' : 'me'), peer:o.peer || null, pub:o.pub || '', st:{faced:0, folded:0, acts:0, aggr:0}, debt:0, loans:0, repaid:0, left:false, enc:'', s0:0, tight:o.tight, aggr:o.aggr, bluff:o.bluff, look:o.look, isBot:!!o.isBot,
   chips:START, hole:[], bet:0, total:0, folded:false, allIn:false, needs:false, last:'', out:false, shown:false, win:false}; }
 
 const inHand = p => !p.out && !p.folded;
@@ -689,7 +723,7 @@ async function startHand(){
   G.myStart = G.players[0].chips; G.result = null; $('#result').hidden = true;
   G.hand++; G.sel = new Set(); G.seenHud = new Set(); G.street = 'preflop'; G.board = []; G.deck = newDeck(); G.handOver = false; G.banner = ''; G.hi = new Set(); G.hintEq = null; G.muck = [];
   clearCards();
-  G.players.forEach(p => Object.assign(p, {repaid:0, hole:[], bet:0, total:0, folded:false, allIn:false, needs:false, canReraise:true, last:'', shown:false, win:false, enc:'', s0:p.chips, out:p.chips<=0 || p.kind === 'empty'}));
+  G.players.forEach(p => Object.assign(p, {pfr:false, trap:false, bluffing:false, repaid:0, hole:[], bet:0, total:0, folded:false, allIn:false, needs:false, canReraise:true, last:'', shown:false, win:false, enc:'', s0:p.chips, out:p.chips<=0 || p.kind === 'empty'}));
   G.dealer = nextIdx(G.dealer, p => !p.out);
   const active = G.players.filter(p => !p.out).length;
   const sb = active === 2 ? G.dealer : nextIdx(G.dealer, p => !p.out);
@@ -738,6 +772,8 @@ async function betting(){
 }
 function apply(p, a){
   const toCall = G.maxBet - p.bet;
+  const st = p.st || (p.st = {faced:0, folded:0, acts:0, aggr:0});
+  st.acts++; if (toCall > 0){ st.faced++; if (a.t === 'fold') st.folded++; }
   if (a.t === 'fold'){
     p.folded = true; p.last = 'Fold'; p.hole.forEach(c => G.muck.push(key(c)));
   } else if (a.t === 'raise' && +a.to > G.maxBet && p.canReraise && p.chips > toCall){
@@ -755,6 +791,7 @@ function apply(p, a){
       G.players.forEach(o => { if (o !== p && canAct(o) && o.bet < G.maxBet) o.needs = true; });
     }
     p.last = p.allIn ? 'All-in ' + fmt(to) : (opening ? 'Bet ' : 'Raise ') + fmt(to);
+    st.aggr++; G.lastAggr = p; if (G.street === 'preflop') p.pfr = true;
   } else {
     const x = move(p, toCall);
     p.last = toCall === 0 ? 'Check' : (p.allIn ? 'All-in ' + fmt(p.bet) : 'Call ' + fmt(x));
@@ -791,7 +828,7 @@ async function afterRound(){
   await sleep(450);
   await dealStreet();
   G.maxBet = 0; G.minRaise = BB;
-  G.players.forEach(p => { if (canAct(p)){ p.last = ''; p.needs = true; p.canReraise = true; } });
+  G.players.forEach(p => { if (canAct(p)){ p.last = ''; p.needs = true; p.canReraise = true; } }); G.lastAggr = null;
   G.turn = nextIdx(G.dealer, canAct);
   render();
   await sleep(400);
@@ -923,40 +960,80 @@ function endHand(){
 }
 
 /* ---------- bots ---------- */
+// how often a player folds when bet into, and how often they bet or raise (with a prior, so 2 hands don't decide it)
+const foldRate = o => (((o.st && o.st.folded) || 0) + 1.4) / (((o.st && o.st.faced) || 0) + 4);
+const aggrRate = o => (((o.st && o.st.aggr) || 0) + 1) / (((o.st && o.st.acts) || 0) + 4);
 async function botMove(p){
-  await sleep(700 + Math.random()*700);
-  const nOpp = G.players.filter(o => o !== p && inHand(o)).length;
-  const eq = equity(p.hole, G.board, nOpp, G.board.length ? 260 : 180);
-  const rel = eq * (nOpp + 1);
+  await sleep(650 + Math.random()*800);
+  const opps = G.players.filter(o => o !== p && inHand(o));
+  const nOpp = opps.length;
+  const eq = equity(p.hole, G.board, nOpp, G.board.length ? 700 : 450);
+  const rel = eq * (nOpp + 1);                 // 1 = an average hand at this table
   const pot = potTotal();
   const toCall = Math.min(G.maxBet - p.bet, p.chips);
   const r = Math.random();
+  const st = G.street, post = st !== 'preflop';
   const others = G.players.some(o => o !== p && canAct(o));
   const canRaise = others && p.chips > toCall && p.canReraise;
-  const raise = () => {
-    let size = Math.max(G.minRaise, pot * (0.45 + Math.random()*0.55*(0.6 + p.aggr)));
-    if (rel > 2.6 && Math.random() < p.aggr*0.35) size = p.chips;
-    let to = Math.round((G.maxBet + size)/10)*10;
+  const made = G.board.length >= 3 ? best(p.hole.concat(G.board)).cat : (p.hole[0].r === p.hole[1].r ? 1 : 0);
+  const foldy = opps.reduce((a, o) => a + foldRate(o), 0) / Math.max(1, nOpp);   // how easily the others give up
+  const headsUp = nOpp === 1;
+  // one sizing menu for strong hands AND bluffs, so the size of a bet gives nothing away
+  const raise = kind => {
+    let size;
+    if (!post) size = BB * (1.5 + Math.random() * 2) + (G.maxBet > BB ? G.maxBet * (0.6 + Math.random() * 0.8) : 0);
+    else {
+      const menu = [0.5, 0.66, 0.75, 1];
+      let mult = menu[Math.random() * menu.length | 0];
+      if (st === 'river' && (kind === 'bluff' || rel > 2.4) && Math.random() < 0.25) mult = 1.35;   // polarised overbet
+      size = (pot + toCall) * mult;
+    }
+    let to = Math.round((G.maxBet + Math.max(G.minRaise, size)) / 10) * 10;
     to = Math.max(to, G.maxBet + G.minRaise);
-    return {t:'raise', to: Math.min(to, p.bet + p.chips)};
+    const stack = p.bet + p.chips;
+    if (rel > 2.6 && Math.random() < p.aggr * 0.25) to = stack;                    // occasional shove with a monster
+    if (to > stack * 0.7 && (rel > 1.6 || kind === 'bluff' && headsUp && Math.random() < 0.3)) to = stack;  // commit instead of a weird almost-all-in
+    if (kind === 'bluff' || kind === 'bluffraise' || kind === 'semi' || kind === 'barrel') p.bluffing = true;
+    return {t:'raise', to:Math.min(to, stack)};
   };
+
   if (toCall === 0){
-    if (canRaise && ((rel > 1.35 - p.aggr*0.35 && r < 0.45 + p.aggr*0.45) || r < p.bluff)) return raise();
+    if (!canRaise) return {t:'call'};
+    // slow play: check a monster on the flop or turn to trap, then raise when someone bets
+    if (post && st !== 'river' && rel > 2.4 && r < 0.2 + (1 - p.aggr) * 0.3){ p.trap = true; return {t:'call'}; }
+    if (rel > 1.35 - p.aggr * 0.35 && r < 0.5 + p.aggr * 0.4) return raise('value');
+    // continuation bet: the pre-flop raiser keeps the initiative whatever the flop
+    if (st === 'flop' && p.pfr && nOpp <= 2 && r < 0.4 + p.aggr * 0.35) return raise('cbet');
+    // keep the story going after an earlier bluff (second / third barrel)
+    if (post && p.bluffing && r < 0.3 + p.aggr * 0.3) return raise('barrel');
+    // semi-bluff: nothing made yet but a real chance to improve
+    if (post && st !== 'river' && made <= 1 && rel > 0.85 && r < 0.15 + p.aggr * 0.35) return raise('semi');
+    // pure bluff: few opponents who fold a lot, more often on the river
+    const bluffP = p.bluff * (headsUp ? 3 : nOpp === 2 ? 1.6 : 0.5) * (0.5 + foldy * 1.6) * (st === 'river' ? 1.5 : 1);
+    if (post && rel < 0.8 && r < bluffP) return raise('bluff');
     return {t:'call'};
   }
+
   const potOdds = toCall / (pot + toCall);
-  const need = potOdds * (0.85 + p.tight*0.5);
-  const cheap = toCall <= p.chips*0.04 && rel > 0.75;
-  if (eq < need && !cheap) return (canRaise && r < p.bluff*0.5) ? raise() : {t:'fold'};
-  if (G.street === 'preflop' && toCall > BB && rel < 0.75 + p.tight*0.45 && r > p.bluff) return {t:'fold'};
-  if (canRaise && rel > 1.7 - p.aggr*0.5 && r < 0.3 + p.aggr*0.5) return raise();
+  // against someone who bets all the time, call lighter (they bluff more); against a rock, give up sooner
+  const bettor = G.lastAggr && G.lastAggr !== p ? G.lastAggr : null;
+  const lighten = bettor ? Math.max(0.65, Math.min(1.25, 1 - (aggrRate(bettor) - 0.3))) : 1;
+  if (p.trap && canRaise && rel > 1.8 && r < 0.75){ p.trap = false; return raise('value'); }     // check-raise
+  if (canRaise && rel > 1.9 - p.aggr * 0.5 && r < 0.3 + p.aggr * 0.5) return raise('value');
+  // bluff-raise: one opponent, smallish bet, a bot with nerve
+  if (canRaise && post && headsUp && rel < 0.7 && toCall < pot * 0.6 && r < p.bluff * 1.6 * (0.5 + foldy)) return raise('bluffraise');
+  if (canRaise && (st === 'flop' || st === 'turn') && made <= 1 && rel > 0.95 && r < p.aggr * 0.22) return raise('semi');
+  const need = potOdds * (0.85 + p.tight * 0.5) * lighten;
+  const cheap = toCall <= p.chips * 0.04 && rel > 0.75;
+  if (eq < need && !cheap) return {t:'fold'};
+  if (!post && toCall > BB && rel < 0.75 + p.tight * 0.45 && r > p.bluff) return {t:'fold'};
   return {t:'call'};
 }
 
 /* ---------- human ---------- */
 function humanMove(p){
   const nOpp = G.players.filter(o => o !== p && inHand(o)).length;
-  G.hintEq = G.help ? equity(p.hole, G.board, nOpp, 300) : null;
+  G.hintEq = G.help ? equity(p.hole, G.board, nOpp, 1200) : null;
   G.raiseTo = null;
   return new Promise(res => { G.waiting = res; render(); });
 }
@@ -1063,7 +1140,15 @@ const sfx = {
   fold(){ if (!ready()) return; noiseHit({dur:0.28, freq:2200, sweepTo:350, type:'lowpass', q:0.6, peak:0.2}); },
   allin(){ if (!ready()) return; this.chips(6); tone({at:0.05, f:90, slideTo:55, dur:0.45, peak:0.3}); },
   turn(){ if (!ready()) return; tone({f:880, dur:0.55, peak:0.1}); tone({at:0.09, f:1318, dur:0.6, peak:0.07}); },
-  win(){ if (!ready()) return; [523, 659, 784, 1047].forEach((f, i) => tone({at:i * 0.11, f, dur:0.38, type:'triangle', peak:0.12})); this.chips(5); },
+  // cash register "ka-ching": the drawer's mechanical clack, then a bright bell
+  register(){ if (!ready()) return;
+    noiseHit({dur:0.07, freq:1800, q:1.5, peak:0.35}); noiseHit({at:0.045, dur:0.05, freq:3600, q:3, peak:0.25});
+    tone({f:240, slideTo:110, dur:0.08, type:'square', peak:0.045});
+    const at = 0.14;
+    [[1, 0.16, 1.2], [2, 0.07, 0.8], [2.76, 0.06, 0.6], [5.4, 0.025, 0.35]].forEach(([m, pk, d]) => tone({at, f:2093 * m, dur:d, peak:pk, attack:0.002}));
+    [[1, 0.1, 1.0], [2.76, 0.035, 0.5]].forEach(([m, pk, d]) => tone({at:at + 0.085, f:2637 * m, dur:d, peak:pk, attack:0.002}));
+  },
+  win(){ if (!ready()) return; this.register(); setTimeout(() => this.chips(5), 450); },
   lose(){ if (!ready()) return; tone({f:330, slideTo:247, dur:0.45, type:'triangle', peak:0.1}); tone({at:0.22, f:247, slideTo:185, dur:0.6, type:'triangle', peak:0.09}); },
   click(){ if (!ready()) return; tone({f:1400, dur:0.035, peak:0.05}); },
   action(last){
@@ -1338,7 +1423,7 @@ async function applyState(S){
     if (NET.turnAi !== ai){
       NET.turnAi = ai; G.raiseTo = null;
       const me = ps[0];
-      G.hintEq = G.help && me.hole.length === 2 && !me.hole[0].hid ? equity(me.hole, G.board, ps.filter((p, i) => i > 0 && !p.out && !p.folded).length, 300) : null;
+      G.hintEq = G.help && me.hole.length === 2 && !me.hole[0].hid ? equity(me.hole, G.board, ps.filter((p, i) => i > 0 && !p.out && !p.folded).length, 1200) : null;
     }
     G.waiting = a => { NET.answered = ai; G.waiting = null; NET.table && NET.table.presence({act:{id:ai, t:a.t, to:Math.round(+a.to || 0)}}).catch(() => {}); render(); };
   } else G.waiting = null;
@@ -1599,7 +1684,11 @@ function makePerson(look, standing){
   const nose = M(GEO.nose, skin); nose.rotation.x = Math.PI/2; nose.position.set(0, -0.01, 0.15); head.add(nose);
   const cap = (sy=1, y=0.03, m=hairM) => { const h = M(GEO.cap, m); h.scale.set(1, 1.1*sy, 1.04); h.position.y = y; h.rotation.x = -0.25; head.add(h); return h; };
   if (['short','bun','long'].includes(look.hair)) cap();
-  if (look.hair === 'slick') cap(0.85, 0.04);
+  if (look.hair === 'slick'){
+    const sm = matCache['slick' + look.hairC] || (matCache['slick' + look.hairC] = new THREE.MeshPhongMaterial({color:look.hairC ?? 0x222222, shininess:24, specular:0x2a2a2a, flatShading:true}));
+    const h = M(GEO.cap, sm); h.scale.set(1.05, 1.02, 1.1); h.position.set(0, 0.0, -0.012); h.rotation.x = -0.42; head.add(h);   // combed back, glossy, forehead clear
+    const quiff = M(new THREE.BoxGeometry(0.15, 0.055, 0.1), sm); quiff.position.set(0, 0.135, 0.06); quiff.rotation.x = -0.55; head.add(quiff);
+  }
   if (look.hair === 'bun'){ const b = M(GEO.bun, hairM); b.position.set(0, 0.15, -0.09); head.add(b); }
   if (look.hair === 'long'){ const b = M(GEO.longHair, hairM); b.position.set(0, -0.1, -0.1); head.add(b); }
   if (look.hair === 'bald'){ const r = M(new THREE.TorusGeometry(0.135, 0.022, 3, 8, Math.PI*1.1), hairM); r.rotation.set(Math.PI/2, 0, Math.PI*0.9); r.position.y = -0.01; head.add(r); }
@@ -1608,7 +1697,7 @@ function makePerson(look, standing){
   if (look.glasses === 'glasses'){ const gm = lam(0x222222); for (const ex of [-0.05, 0.05]){ const r = M(new THREE.TorusGeometry(0.03, 0.007, 3, 6), gm); r.position.set(ex, 0.025, 0.142); head.add(r); } }
   if (look.glasses === 'shades'){ const s = M(new THREE.BoxGeometry(0.2, 0.05, 0.02), flat(0x050505)); s.position.set(0, 0.03, 0.135); head.add(s); }
   if (look.hat === 'cowboy'){ const hm = flat(look.hatC ?? 0x6b4a2b); const brim = M(new THREE.CylinderGeometry(0.28, 0.28, 0.015, 8), hm); brim.position.y = 0.1; head.add(brim); const cr = M(new THREE.CylinderGeometry(0.12, 0.15, 0.15, 6), hm); cr.position.y = 0.18; head.add(cr); }
-  if (look.hat === 'cap'){ const hm = flat(look.hatC); cap(1, 0.04, hm); const v = M(new THREE.BoxGeometry(0.2, 0.012, 0.13), hm); v.position.set(0, 0.05, 0.17); head.add(v); }
+  if (look.hat === 'cap'){ const hm = flat(look.hatC); cap(1, 0.04, hm); const v = M(new THREE.BoxGeometry(0.2, 0.012, 0.13), hm); v.position.set(0, 0.075, 0.205); v.rotation.x = 0.12; head.add(v); }
   if (look.hat === 'beanie'){ const c = cap(1.25, 0.02, flat(look.hatC)); c.rotation.x = -0.1; }
   parts.arms = [-1, 1].map(sx => {
     const piv = new THREE.Group(); piv.position.set(sx*0.25, 0.6, 0); torso.add(piv);
@@ -1724,8 +1813,8 @@ const faceTexCache = {};
 function faceTex(c){
   const k = key(c); if (faceTexCache[k]) return faceTexCache[k];
   const red = c.s === 1 || c.s === 2;
-  return faceTexCache[k] = canvasTex(384, 540, (x, w, h) => {
-    x.scale(3, 3); w /= 3; h /= 3;
+  return faceTexCache[k] = canvasTex(256, 360, (x, w, h) => {
+    x.scale(2, 2); w /= 2; h /= 2;
     x.fillStyle = '#f7f3ea'; x.fillRect(0,0,w,h);
     x.strokeStyle = '#c9c2b2'; x.lineWidth = 3; x.strokeRect(1.5, 1.5, w-3, h-3);
     x.fillStyle = red ? '#c4202a' : '#14141c'; x.textAlign = 'center'; x.textBaseline = 'middle';
@@ -1902,7 +1991,6 @@ function render(){
   const net = me.chips - (me.debt || 0) - START;
   const dEl = $('#debt'); dEl.textContent = fmt(me.debt || 0); dEl.className = 'val' + (me.debt > 0 ? ' down' : '');
   const netEl = $('#net'); netEl.textContent = (net > 0 ? '+' : net < 0 ? '−' : '') + fmt(Math.abs(net)); netEl.className = 'val' + (net > 0 ? ' up' : net < 0 ? ' down' : '');
-  $('#myChips').textContent = fmt(me.chips);
   $('#myChips2').textContent = fmt(me.chips);
   renderControls();
   if (G.mode === 'host') broadcast();
