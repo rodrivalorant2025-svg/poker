@@ -165,8 +165,18 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 
 /* help overlay */
 .helpov{z-index:10;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(0,0,0,.6);pointer-events:auto}
-.helpbox{width:min(600px,90vw)}
-.helpbox .in{padding:16px 20px;display:flex;flex-direction:column;gap:9px;font-size:14px;line-height:1.5}
+.helpbox{width:min(680px,92vw)}
+.helpbox h2 + p, .helpbox .tips{margin:0}
+.hands{display:flex;flex-direction:column;gap:5px}
+.hrow{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;background:rgba(0,0,0,.25);border-radius:8px;padding:6px 10px}
+.hn{font-family:var(--f-title);font-weight:800;color:var(--gold);font-size:16px;text-align:center}
+.ht{display:flex;flex-direction:column;min-width:0}
+.ht b{color:var(--txt)!important;font-size:15px}
+.ht small{color:var(--dim);font-size:12.5px;line-height:1.35}
+.hcs{display:flex;gap:3px}
+.hcs .mc{min-width:30px;height:38px;font-size:15px}
+.tips{padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.helpbox .in{padding:16px 20px;display:flex;flex-direction:column;gap:9px;font-size:14px;line-height:1.5;max-height:calc(100vh - 40px);overflow-y:auto}
 .helpbox h2{margin:0;font-family:var(--f-title);font-weight:800;font-size:21px;color:var(--gold);letter-spacing:.1em}
 .helpbox ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
 .helpbox b{color:var(--gold);font-weight:800}
@@ -231,6 +241,18 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .note.err{color:var(--bad)}
 .tbl{font-size:12.5px;line-height:1.35;color:var(--txt);background:rgba(0,0,0,.3);border-radius:6px;padding:5px 7px}
 .tbl b{color:var(--gold);user-select:text}
+.chatrow{display:flex;gap:7px;align-items:center;border-top:1px solid rgba(217,180,90,.3);padding-top:8px}
+.chatrow input{flex:1;min-width:0;font:600 14px var(--f-ui);color:var(--txt);background:rgba(0,0,0,.45);border:1px solid rgba(217,180,90,.45);border-radius:7px;padding:7px 9px}
+.chatrow input:focus-visible{outline:2px solid var(--brass-hi);outline-offset:1px}
+.chatcnt{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+.chatrow .btn{min-height:34px;padding:4px 12px;font-size:14px}
+.bubble{position:absolute;left:0;top:0;z-index:4;pointer-events:none;max-width:200px;padding:6px 11px;border-radius:12px;background:#fffdf6;color:#1b1410;
+  font:700 15px var(--f-ui);text-shadow:none;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.5);animation:bubIn .2s ease-out both}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:#fffdf6}
+.bubble.out{animation:bubOut .3s ease-in both}
+.bubble.mine{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%)}
+@keyframes bubIn{from{opacity:0;margin-top:8px}to{opacity:1;margin-top:0}}
+@keyframes bubOut{to{opacity:0}}
 .tag .nm{font-family:var(--f-title);font-weight:800;font-size:14px;color:#fff;background:rgba(0,0,0,.6);padding:0 8px;border-radius:5px;white-space:nowrap}
 .logo{display:flex;flex-direction:column;align-items:center;line-height:.9;text-align:center;pointer-events:none;animation:logoIn .7s cubic-bezier(.2,.9,.25,1.1) both}
 .logo .l1,.logo .l2{font-family:var(--f-title);font-weight:800;letter-spacing:.06em;color:#f2c64a;
@@ -284,6 +306,11 @@ html.inmenu .bottom > *{transition-delay:0s}
       </div>
       <button class="btn raise" id="bRaise"><span id="raiseTxt">RAISE</span></button>
       <button class="btn raise" id="bAll"><span id="allTxt">ALL-IN</span></button>
+    </div>
+    <div class="chatrow" id="chatRow" hidden>
+      <input id="chatIn" maxlength="20" autocomplete="off" placeholder="Escribe un mensaje…" aria-label="Mensaje para la mesa (máximo 20 caracteres)">
+      <span class="chatcnt" id="chatCnt">0/20</span>
+      <button class="btn" id="bSay">ENVIAR</button>
     </div>
     <div class="row" id="nextBox" hidden>
       <button class="btn call wide" id="bNext">SIGUIENTE MANO</button>
@@ -405,6 +432,18 @@ html.inmenu .bottom > *{transition-delay:0s}
       </ol>
       <p style="margin:0"><b>CHECK</b>: pasar sin poner dinero (solo si nadie ha apostado). <b>CALL</b>: igualar lo que otro apostó. <b>BET / RAISE</b>: apostar o subir; es opcional, nunca estás obligado. <b>FOLD</b>: retirarte y perder lo que ya pusiste. <b>ALL-IN</b>: apostar todas tus fichas.</p>
       <p style="margin:0">Si te quedas sin fichas no puedes jugar hasta pedir un <b>préstamo de $1.000</b> al casino. Mientras tengas deuda, lo que ganes en cada mano va primero a pagarla.</p>
+      <h2>LAS COMBINACIONES</h2>
+      <p style="margin:0">De mejor a peor. Tu jugada son las <b>5 mejores cartas</b> que puedas formar con tus 2 cartas y las 5 de la mesa. Las cartas en dorado son las que forman la combinación.</p>
+      <div class="hands"><div class="hrow"><span class="hn">1</span><div class="ht"><b>Escalera real</b><small>A, K, Q, J y 10 del mismo palo. La mejor mano posible.</small></div><div class="hcs"><span class="mc on">A♠</span><span class="mc on">K♠</span><span class="mc on">Q♠</span><span class="mc on">J♠</span><span class="mc on">10♠</span></div></div><div class="hrow"><span class="hn">2</span><div class="ht"><b>Escalera de color</b><small>5 cartas seguidas del mismo palo.</small></div><div class="hcs"><span class="mc red on">9♥</span><span class="mc red on">8♥</span><span class="mc red on">7♥</span><span class="mc red on">6♥</span><span class="mc red on">5♥</span></div></div><div class="hrow"><span class="hn">3</span><div class="ht"><b>Póker</b><small>4 cartas del mismo número.</small></div><div class="hcs"><span class="mc on">Q♣</span><span class="mc red on">Q♦</span><span class="mc red on">Q♥</span><span class="mc on">Q♠</span><span class="mc red">7♦</span></div></div><div class="hrow"><span class="hn">4</span><div class="ht"><b>Full</b><small>Un trío y una pareja a la vez.</small></div><div class="hcs"><span class="mc red on">K♥</span><span class="mc red on">K♦</span><span class="mc on">K♠</span><span class="mc on">4♣</span><span class="mc red on">4♥</span></div></div><div class="hrow"><span class="hn">5</span><div class="ht"><b>Color</b><small>5 cartas del mismo palo, en cualquier orden.</small></div><div class="hcs"><span class="mc red on">A♦</span><span class="mc red on">J♦</span><span class="mc red on">8♦</span><span class="mc red on">6♦</span><span class="mc red on">2♦</span></div></div><div class="hrow"><span class="hn">6</span><div class="ht"><b>Escalera</b><small>5 cartas seguidas de cualquier palo. El as puede ir arriba (10-J-Q-K-A) o abajo (A-2-3-4-5).</small></div><div class="hcs"><span class="mc on">10♣</span><span class="mc red on">9♦</span><span class="mc on">8♠</span><span class="mc red on">7♥</span><span class="mc on">6♣</span></div></div><div class="hrow"><span class="hn">7</span><div class="ht"><b>Trío</b><small>3 cartas del mismo número.</small></div><div class="hcs"><span class="mc on">7♠</span><span class="mc red on">7♥</span><span class="mc red on">7♦</span><span class="mc">K♣</span><span class="mc">2♠</span></div></div><div class="hrow"><span class="hn">8</span><div class="ht"><b>Doble pareja</b><small>Dos parejas distintas.</small></div><div class="hcs"><span class="mc on">J♣</span><span class="mc red on">J♥</span><span class="mc on">5♠</span><span class="mc red on">5♦</span><span class="mc">A♣</span></div></div><div class="hrow"><span class="hn">9</span><div class="ht"><b>Pareja</b><small>2 cartas del mismo número.</small></div><div class="hcs"><span class="mc red on">A♥</span><span class="mc red on">A♦</span><span class="mc">9♣</span><span class="mc">6♠</span><span class="mc red">3♥</span></div></div><div class="hrow"><span class="hn">10</span><div class="ht"><b>Carta alta</b><small>Sin nada de lo anterior: cuenta la carta más alta.</small></div><div class="hcs"><span class="mc on">K♠</span><span class="mc red">J♦</span><span class="mc">8♣</span><span class="mc red">5♥</span><span class="mc">2♠</span></div></div></div>
+      <h2>CÓMO PENSAR TU MANO</h2>
+      <ul class="tips">
+        <li><b>Lo que hay en la mesa es de todos.</b> Si la pareja está en la mesa, todos la tienen: lo que cuenta es lo que añaden tus 2 cartas.</li>
+        <li><b>Empate en la misma jugada:</b> gana la más alta (pareja de reyes gana a pareja de ochos). Si son iguales, desempata la carta más alta que sobra, el <b>kicker</b>: A-A-K gana a A-A-Q.</li>
+        <li><b>Cuenta tus "outs":</b> las cartas que aún pueden salir y te mejoran. Con 4 cartas de corazones te faltan 9 corazones para el color. Truco: outs × 4 tras el flop (o × 2 tras el turn) = % aproximado de ligarlo.</li>
+        <li><b>Mira la mesa con ojos del rival:</b> si hay 3 cartas del mismo palo, alguien puede tener color; si están seguidas, escalera. Cuantas más posibilidades, más cuidado.</li>
+        <li><b>Las manos iniciales importan:</b> parejas altas (A-A, K-K, Q-Q) y A-K son muy fuertes; cartas bajas sin relación (7-2 de distinto palo) casi nunca ganan.</li>
+        <li><b>No siempre gana la mejor mano:</b> si apuestas fuerte y todos se retiran, ganas sin enseñar cartas. Los bots también lo saben y a veces farolean.</li>
+      </ul>
       <div class="row"><button class="btn call wide" id="bHelpClose">ENTENDIDO</button></div>
     </div></div>
   </div>
@@ -1259,7 +1298,7 @@ function broadcast(){ if (bcQueued || !NET.table) return; bcQueued = true; queue
 const KIND = {me:'h', remote:'r', bot:'b', empty:'e'};
 function sendState(){
   const S = {h:G.hand, st:G.street, d:G.dealer, tu:G.turn, ai:G.actId, mb:G.maxBet, mr:G.minRaise, ho:G.handOver ? 1 : 0, wp:G.waitPlayers ? 1 : 0, sb:G.sbI, bb:G.bbI, bd:codes(G.board),
-    P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:p.peer || '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
+    P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:(p.kind === 'me' ? NET.myPeer : p.peer) || '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
       c:p.chips, s0:p.s0 || 0, b:p.bet, t:p.total, f:p.folded ? 1 : 0, a:p.allIn ? 1 : 0, o:p.out ? 1 : 0, l:p.last, cr:p.canReraise ? 1 : 0, w:p.win ? 1 : 0,
       hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
   if (G.result) S.rs = {f:G.result.byFold ? 1 : 0, w:G.result.winners.map(w => [G.players.indexOf(w.p), w.amt]),
@@ -1332,7 +1371,7 @@ async function hostCreate(name, fill){
   const ps = [newPlayer({name:myName()})]; G.players = ps; ps[0].av = cleanAv(G.av);
   for (let i=1;i<N;i++) ps.push(fill ? makeBot(i) : emptySeat());
   G.dealer = 0; G.hand = 0; G.board = []; G.result = null; G.handOver = true; G.waitPlayers = true; clearCards();
-  NET.table.onPeers(hostOnPeers);
+  NET.table.onPeers(ch => { const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer; hostOnPeers(ch); readChat(ch.peers); });
   NET.table.presence({role:'host', pub:myPub}).catch(() => {});
   const link = location.origin + location.pathname + '?mesa=' + encodeURIComponent(NET.code);
   $('#tableInfo').innerHTML = `Mesa <b>${esc(NET.tableName)}</b> · código <b>${esc(NET.code)}</b><br><button class="btn tiny" id="bCopy">COPIAR ENLACE DE INVITACIÓN</button><br><span class="dimtxt">Mantén esta página abierta: si la cierras o la recargas, la mesa se cierra.</span>`;
@@ -1356,6 +1395,7 @@ async function clientJoin(code){
   NET.table.presence({role:'player', name:myName(), pub:myPub, av:cleanAv(G.av)}).catch(() => {});
   NET.table.onPeers(ch => {
     const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer;
+    readChat(ch.peers);
     const host = ch.peers.find(x => x.presence.role === 'host' && !x.sameTab);
     if (!host){ if (NET.hadHost) hostGone(); return; }
     NET.hadHost = true; NET.hostPub = String(host.presence.pub || '');
@@ -1404,7 +1444,7 @@ async function applyState(S){
     const av = q.av ? cleanAv(q.av) : null;
     ps.push({name:kind === 'bot' && lk ? lk.name : cleanName(q.n), kind, isBot:kind === 'bot', avSig:av ? JSON.stringify(av) : '', look:kind === 'bot' && lk ? lk.look : av ? lookFromAv(av) : HUMAN_LOOKS[abs % HUMAN_LOOKS.length],
       chips:+q.c || 0, s0:+q.s0 || 0, bet:+q.b || 0, total:+q.t || 0, folded:!!q.f, allIn:!!q.a, out:!!q.o, last:String(q.l || '').slice(0, 24),
-      canReraise:!!q.cr, win:!!q.w, shown:!!q.sh, picked:!!q.pk, bc:String(q.bc || ''), hole, debt:+q.dt || 0, repaid:+q.rp || 0, needs:false});
+      peer:String(q.pe || '') || null, canReraise:!!q.cr, win:!!q.w, shown:!!q.sh, picked:!!q.pk, bc:String(q.bc || ''), hole, debt:+q.dt || 0, repaid:+q.rp || 0, needs:false});
   }
   G.players = ps;
   G.myStart = ps[0].s0;
@@ -1758,7 +1798,8 @@ function makeWalker(look){
   const arms = [-1, 1].map(sx => { const piv = new THREE.Group(); piv.position.set(sx*0.25, 1.5, 0); const a = M(GEO.upper, shirt); a.position.y = -0.16; piv.add(a); const f = M(GEO.fore, skin); f.position.y = -0.46; piv.add(f); g.add(piv); return piv; });
   const eyeM = lam(0x111111);
   const eyes = [-0.048, 0.048].map(ex => { const e = M(GEO.eye, eyeM); e.position.set(ex, 1.785, 0.13); g.add(e); return e; });
-  g.userData = {legs, arms, eyes, blink:{next: Math.random() * 4}};
+  const shadow = M(new THREE.PlaneGeometry(0.75, 0.75), blobMat); shadow.rotation.x = -Math.PI/2; shadow.position.y = 0.012; g.add(shadow);
+  g.userData = {legs, arms, eyes, shadow, blink:{next: Math.random() * 4}};
   return g;
 }
 const WALK_A0 = -Math.PI/2 - 1.3, WALK_A1 = -Math.PI/2 + 1.3;
@@ -1786,7 +1827,7 @@ function updateWalkers(t, dt){
     const x = Math.cos(w.a) * w.r, z = Math.sin(w.a) * w.r * 0.9;
     const tx = -Math.sin(w.a) * w.dir, tz = Math.cos(w.a) * 0.9 * w.dir;
     const step = t * 6.5 + w.phase, sw = Math.sin(step) * 0.45;
-    w.g.position.set(x, Math.abs(Math.cos(step)) * 0.025, z);
+    const bob = Math.abs(Math.cos(step)) * 0.025; w.g.position.set(x, bob, z); w.g.userData.shadow.position.y = 0.012 - bob;
     w.g.rotation.y = Math.atan2(tx, tz);
     const u = w.g.userData;
     blinkEyes(u.eyes, u.blink, t);
@@ -1960,6 +2001,7 @@ function layoutTags(){
     if (i === 0 || !seats[i].tag) return;
     const sp = seatPos(i); const s = project(new V3(sp.x, 1.66, sp.z));
     seats[i].tag.style.transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px) translate(-50%, -100%)`;
+    if (seats[i].bub){ const b = project(new V3(sp.x, 2.02, sp.z)); seats[i].bub.style.transform = `translate(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px) translate(-50%, -100%)`; }
   });
 }
 
@@ -2003,6 +2045,7 @@ function renderControls(){
   if (myTurn && !SFX.wasTurn) sfx.turn(); SFX.wasTurn = myTurn;
   const broke = me.chips <= 0 && me.kind !== 'empty' && (G.handOver || me.out) && !(G.mode === 'client' && !NET.seated);
   const watching = G.mode === 'client' && !NET.seated;
+  $('#chatRow').hidden = G.mode === 'solo' || !NET.table;
   $('#acts').hidden = G.handOver || watching;
   const enough = G.players.filter(p => p.kind !== 'empty' && p.chips > 0).length >= 2;
   $('#nextBox').hidden = !G.handOver || (broke && G.mode === 'solo') || G.mode === 'client' || (G.waitPlayers && !enough);
@@ -2158,6 +2201,50 @@ function syncAvatarOpts(){
   const hatOn = G.av.hat > 0;
   document.querySelectorAll('#avOpts .hatc').forEach(el => el.style.visibility = hatOn ? 'visible' : 'hidden');
 }
+
+/* ---------- table chat: 20-character speech bubbles ---------- */
+const CHAT = {n:0, last:0, seen:{}};
+const cleanMsg = t => String(t || '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f]/g, '').trim().slice(0, 20);
+function bubble(seat, text){
+  if (!text) return;
+  let el;
+  if (seat === 0){ document.querySelectorAll('.bubble.mine').forEach(x => x.remove()); el = document.createElement('div'); el.className = 'bubble mine'; document.querySelector('.hud').appendChild(el); }
+  else { const s = seats[seat]; if (!s) return; if (s.bub) s.bub.remove(); el = s.bub = document.createElement('div'); el.className = 'bubble'; tagsEl.appendChild(el); layoutTags(); }
+  el.textContent = text;
+  const ref = el;
+  setTimeout(() => { ref.classList.add('out'); setTimeout(() => { ref.remove(); if (seat > 0 && seats[seat] && seats[seat].bub === ref) seats[seat].bub = null; }, 320); }, 5500);
+  sfx.click();
+}
+function readChat(peers){
+  for (const pe of peers){
+    if (pe.sameTab) continue;
+    const say = pe.presence && pe.presence.say;
+    if (!say || typeof say !== 'object'){ if (CHAT.seen[pe.peer] === undefined) CHAT.seen[pe.peer] = 0; continue; }
+    const n = +say.n || 0;
+    if (CHAT.seen[pe.peer] === undefined){ CHAT.seen[pe.peer] = n; continue; }   // don't replay an old message on joining
+    if (n === CHAT.seen[pe.peer]) continue;
+    CHAT.seen[pe.peer] = n;
+    const seat = G.players.findIndex(p => p.peer === pe.peer);
+    const text = cleanMsg(say.t); if (!text) continue;
+    if (seat > 0) bubble(seat, text);
+    else {   // someone without a visible seat (watching, or you are watching them): show it as a short note
+      const nm = seat === 0 ? G.players[0].name : cleanName(pe.presence.name);
+      toast(`${nm.toUpperCase()}: ${text}`, '', '', 4000);
+    }
+  }
+}
+function sendChat(){
+  const t = cleanMsg($('#chatIn').value);
+  if (!t || !NET.table) return;
+  const nowT = Date.now(); if (nowT - CHAT.last < 1500) return;   // no spamming
+  CHAT.last = nowT; CHAT.n++;
+  NET.table.presence({say:{n:CHAT.n, t}}).catch(() => {});
+  bubble(0, t);
+  $('#chatIn').value = ''; $('#chatCnt').textContent = '0/20';
+}
+$('#bSay').onclick = sendChat;
+$('#chatIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); sendChat(); } });
+$('#chatIn').addEventListener('input', e => { $('#chatCnt').textContent = e.target.value.length + '/20'; });
 
 setupMenu();
 })();
