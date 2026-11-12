@@ -1395,7 +1395,7 @@ function makePerson(look, standing){
   const head = new THREE.Group(); head.position.y = 0.88; torso.add(head); parts.head = head;
   const skull = M(GEO.skull, skin); skull.scale.set(1, 1.12, 1); head.add(skull);
   const eyeM = lam(0x111111);
-  for (const ex of [-0.048, 0.048]){ const e = M(GEO.eye, eyeM); e.position.set(ex, 0.025, 0.13); head.add(e); }
+  parts.eyes = [-0.048, 0.048].map(ex => { const e = M(GEO.eye, eyeM); e.position.set(ex, 0.025, 0.13); head.add(e); return e; });
   const nose = M(GEO.nose, skin); nose.rotation.x = Math.PI/2; nose.position.set(0, -0.01, 0.15); head.add(nose);
   const cap = (sy=1, y=0.03, m=hairM) => { const h = M(GEO.cap, m); h.scale.set(1, 1.1*sy, 1.04); h.position.y = y; h.rotation.x = -0.25; head.add(h); return h; };
   if (['short','bun','long'].includes(look.hair)) cap();
@@ -1425,11 +1425,12 @@ function makePerson(look, standing){
     for (const [lx, lz] of [[-0.22,-0.14],[0.22,-0.14],[-0.22,0.28],[0.22,0.28]]){ const l = M(GEO.chairLeg, wm); l.position.set(lx, 0.21, lz); g.add(l); }
   }
   const sb = M(new THREE.PlaneGeometry(0.9, 0.9), blobMat); sb.rotation.x = -Math.PI/2; sb.position.y = 0.012; g.add(sb);
-  g.userData = {parts, standing, phase: Math.random()*10};
+  g.userData = {parts, standing, phase: Math.random()*10, blink: {next: 1 + Math.random()*4}};
   return g;
 }
 function animatePerson(g, t, state){
   const {parts, standing, phase} = g.userData;
+  blinkEyes(parts.eyes, g.userData.blink, t);
   parts.torso.position.y = (standing ? 0.95 : 0.52) + Math.sin(t*1.6 + phase)*0.004;
   let lean = standing ? 0.05 : 0.05, headX = 0.12, headY = Math.sin(t*0.37 + phase)*0.18, headZ = 0;
   let armL = -0.2, armR = -0.2, elbL = -0.9, elbR = -0.9;
@@ -1450,6 +1451,13 @@ croupier.position.set(0, 0, -1.62); croupier.lookAt(0, 0, 0); scene.add(croupier
 const crState = {dealT:null};
 
 /* ---------- people strolling through the casino (cheap: shared geometry, no shadows) ---------- */
+// eyes close for ~0.13 s every 2-6 s; now and then a double blink
+function blinkEyes(eyes, b, t){
+  if (!eyes) return;
+  if (t >= b.next){ b.until = t + 0.13; b.next = t + (Math.random() < 0.15 ? 0.25 : 2 + Math.random() * 4); }
+  const sy = t < b.until ? 0.12 : 1;
+  if (eyes[0].scale.y !== sy) eyes.forEach(e => e.scale.y = sy);
+}
 function makeWalker(look){
   const g = new THREE.Group();
   const skin = flat(look.skin), shirt = flat(look.shirt), pants = flat(0x22222e), hairM = flat(look.hairC ?? 0x222222);
@@ -1459,7 +1467,9 @@ function makeWalker(look){
   const head = M(GEO.skull, skin); head.scale.set(1, 1.12, 1); head.position.y = 1.76; g.add(head);
   if (look.hair !== 'bald'){ const hair = M(GEO.cap, hairM); hair.scale.set(1, 1.1, 1.04); hair.position.y = 1.79; hair.rotation.x = -0.25; g.add(hair); }
   const arms = [-1, 1].map(sx => { const piv = new THREE.Group(); piv.position.set(sx*0.25, 1.5, 0); const a = M(GEO.upper, shirt); a.position.y = -0.16; piv.add(a); const f = M(GEO.fore, skin); f.position.y = -0.46; piv.add(f); g.add(piv); return piv; });
-  g.userData = {legs, arms};
+  const eyeM = lam(0x111111);
+  const eyes = [-0.048, 0.048].map(ex => { const e = M(GEO.eye, eyeM); e.position.set(ex, 1.785, 0.13); g.add(e); return e; });
+  g.userData = {legs, arms, eyes, blink:{next: Math.random() * 4}};
   return g;
 }
 const WALK_A0 = -Math.PI/2 - 1.3, WALK_A1 = -Math.PI/2 + 1.3;
@@ -1488,6 +1498,7 @@ function updateWalkers(t, dt){
     w.g.position.set(x, Math.abs(Math.cos(step)) * 0.025, z);
     w.g.rotation.y = Math.atan2(tx, tz);
     const u = w.g.userData;
+    blinkEyes(u.eyes, u.blink, t);
     u.legs[0].rotation.x = sw; u.legs[1].rotation.x = -sw;
     u.arms[0].rotation.x = -sw * 0.7; u.arms[1].rotation.x = sw * 0.7;
   }
