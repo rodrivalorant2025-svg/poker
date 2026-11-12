@@ -1449,6 +1449,50 @@ const croupier = makePerson({shirt:0xf1ece2, skin:0xe2b994, hair:'slick', hairC:
 croupier.position.set(0, 0, -1.62); croupier.lookAt(0, 0, 0); scene.add(croupier);
 const crState = {dealT:null};
 
+/* ---------- people strolling through the casino (cheap: shared geometry, no shadows) ---------- */
+function makeWalker(look){
+  const g = new THREE.Group();
+  const skin = flat(look.skin), shirt = flat(look.shirt), pants = flat(0x22222e), hairM = flat(look.hairC ?? 0x222222);
+  const legs = [-1, 1].map(sx => { const piv = new THREE.Group(); piv.position.set(sx*0.09, 0.92, 0); const l = M(GEO.leg, pants); l.position.y = -0.46; piv.add(l); g.add(piv); return piv; });
+  const chest = M(GEO.chest, shirt); chest.position.y = 1.24; g.add(chest);
+  const sh = M(GEO.shoulders, shirt); sh.scale.set(1.25, 0.55, 0.85); sh.position.y = 1.53; g.add(sh);
+  const head = M(GEO.skull, skin); head.scale.set(1, 1.12, 1); head.position.y = 1.76; g.add(head);
+  if (look.hair !== 'bald'){ const hair = M(GEO.cap, hairM); hair.scale.set(1, 1.1, 1.04); hair.position.y = 1.79; hair.rotation.x = -0.25; g.add(hair); }
+  const arms = [-1, 1].map(sx => { const piv = new THREE.Group(); piv.position.set(sx*0.25, 1.5, 0); const a = M(GEO.upper, shirt); a.position.y = -0.16; piv.add(a); const f = M(GEO.fore, skin); f.position.y = -0.46; piv.add(f); g.add(piv); return piv; });
+  g.userData = {legs, arms};
+  return g;
+}
+const WALK_A0 = -Math.PI/2 - 1.3, WALK_A1 = -Math.PI/2 + 1.3;
+const WALK_LOOKS = POOL.map(b => b.look).concat(HUMAN_LOOKS);
+const walkers = [];
+function launchWalker(w){
+  w.dir = Math.random() < 0.5 ? 1 : -1;
+  w.r = 4.1 + Math.random() * 1.1;
+  w.speed = (0.55 + Math.random() * 0.35) / w.r;     // ~0.55-0.9 m/s along the arc
+  w.a = w.dir > 0 ? WALK_A0 : WALK_A1;
+  w.g.visible = true;
+}
+for (let i = 0; i < 5; i++){
+  const g = makeWalker(WALK_LOOKS[(i * 3 + 1) % WALK_LOOKS.length]); g.visible = false; scene.add(g);
+  const w = {g, wait:1 + i * 3.5 + Math.random() * 3, phase:Math.random() * 6};
+  walkers.push(w);
+}
+function updateWalkers(t, dt){
+  for (const w of walkers){
+    if (w.wait > 0){ w.wait -= dt; if (w.wait <= 0) launchWalker(w); continue; }
+    w.a += w.dir * w.speed * dt;
+    if (w.a < WALK_A0 || w.a > WALK_A1){ w.g.visible = false; w.wait = 6 + Math.random() * 12; continue; }
+    const x = Math.cos(w.a) * w.r, z = Math.sin(w.a) * w.r * 0.9;
+    const tx = -Math.sin(w.a) * w.dir, tz = Math.cos(w.a) * 0.9 * w.dir;
+    const step = t * 6.5 + w.phase, sw = Math.sin(step) * 0.45;
+    w.g.position.set(x, Math.abs(Math.cos(step)) * 0.025, z);
+    w.g.rotation.y = Math.atan2(tx, tz);
+    const u = w.g.userData;
+    u.legs[0].rotation.x = sw; u.legs[1].rotation.x = -sw;
+    u.arms[0].rotation.x = -sw * 0.7; u.arms[1].rotation.x = sw * 0.7;
+  }
+}
+
 /* ---------- cards ---------- */
 const CW = 0.2, CH = 0.28;
 const cardGeo = new THREE.BoxGeometry(CW, 0.004, CH);
@@ -1748,6 +1792,7 @@ function frame(){
   if (ring.visible) ring.material.opacity = 0.45 + Math.sin(t*4)*0.3;
   G.players.forEach((p, i) => { const s = seats[i]; if (s.person) animatePerson(s.person, t, {folded:p.folded, turn:G.turn === i, winT:s.person.winT}); });
   animatePerson(croupier, t, {dealT: crState.dealT});
+  updateWalkers(t, step);
   renderer.render(scene, camera);
 }
 
