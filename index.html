@@ -173,6 +173,16 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .startbox .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:22px;align-items:start}
 .startbox .col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .startbox .col .sect{border-top:0;padding-top:0;margin-top:0}
+.avbox{height:300px;border-radius:10px;background:radial-gradient(ellipse at 50% 40%,rgba(255,220,160,.18),rgba(0,0,0,.35) 75%);overflow:hidden}
+.avbox canvas{width:100%;height:100%;display:block}
+.avopts{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center}
+.avopts .bl{font-size:14px;color:var(--dim)}
+.avopts select{font:700 14px var(--f-ui);color:var(--txt);background:rgba(0,0,0,.45);border:1px solid rgba(217,180,90,.45);border-radius:7px;padding:7px 9px;min-width:0}
+.avopts select:focus-visible{outline:2px solid var(--brass-hi);outline-offset:1px}
+.sws{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:26px;height:26px;border-radius:50%;border:2px solid rgba(0,0,0,.5);cursor:pointer;padding:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.sw[aria-pressed="true"]{outline:3px solid var(--brass-hi);outline-offset:2px}
+.sw:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .startbox > .in{height:auto}
 .startbox .in{padding:24px 28px;display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - 40px);overflow-y:auto}
 .scr{display:flex;flex-direction:column;gap:14px}
@@ -217,9 +227,12 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .tbl b{color:var(--gold);user-select:text}
 .tag .nm{font-family:var(--f-title);font-weight:800;font-size:14px;color:#fff;background:rgba(0,0,0,.6);padding:0 8px;border-radius:5px;white-space:nowrap}
 .logo{display:flex;flex-direction:column;align-items:center;line-height:.9;text-align:center;pointer-events:none;animation:logoIn .7s cubic-bezier(.2,.9,.25,1.1) both}
-.logo .l1,.logo .l2{font-family:var(--f-title);font-weight:800;letter-spacing:.06em;-webkit-text-stroke:2px #fff;paint-order:stroke fill;
-  background:linear-gradient(180deg,#fff6cf 0%,var(--brass-hi) 35%,var(--brass) 60%,var(--brass-lo) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(0 4px 0 rgba(0,0,0,.55)) drop-shadow(0 0 22px rgba(240,204,106,.35))}
+.logo .l1,.logo .l2{font-family:var(--f-title);font-weight:800;letter-spacing:.06em;color:#f2c64a;
+  --o:4px;--d:3px;
+  text-shadow:var(--o) 0 0 #fff,calc(-1*var(--o)) 0 0 #fff,0 var(--o) 0 #fff,0 calc(-1*var(--o)) 0 #fff,
+    var(--d) var(--d) 0 #fff,calc(-1*var(--d)) var(--d) 0 #fff,var(--d) calc(-1*var(--d)) 0 #fff,calc(-1*var(--d)) calc(-1*var(--d)) 0 #fff,
+    0 calc(var(--o) + 5px) 0 rgba(0,0,0,.5),0 0 26px rgba(240,204,106,.45)}
+.logo .l1{--o:3px;--d:2px}
 .logo .l1{font-size:clamp(28px,3.4vw,46px);letter-spacing:.3em;margin-right:-.3em}
 .logo .l2{font-size:clamp(64px,8vw,116px)}
 .logo .l3{margin-top:8px;font-size:15px;color:var(--txt);text-shadow:0 2px 4px rgba(0,0,0,.9)}
@@ -314,6 +327,7 @@ html.inmenu .bottom > *{transition-delay:0s}
           <button class="btn call big" id="goSolo">JUGAR SOLO<small>Tú contra 4 bots</small></button>
           <button class="btn raise big" id="goOnline">JUGAR ONLINE<small>Mesas de hasta 5 personas</small></button>
         </div>
+        <button class="btn wide" id="goAvatar">PERSONALIZAR MI AVATAR</button>
       </section>
 
       <section class="scr" id="scrSetup" hidden>
@@ -330,6 +344,17 @@ html.inmenu .bottom > *{transition-delay:0s}
             <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Ayuda de jugada</b><small>Muestra la jugada recomendada y tu probabilidad de ganar.</small></span></label>
             <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
           </div>
+        </div>
+      </section>
+
+      <section class="scr" id="scrAvatar" hidden>
+        <div class="scrhead"><button class="btn tiny" id="backAvatar">◀ VOLVER</button><h3>TU AVATAR</h3></div>
+        <div class="cols">
+          <div class="col">
+            <div class="avbox" id="avBox"></div>
+            <div class="dimtxt">Así te verán los demás jugadores en las mesas online. Se guarda en este navegador.</div>
+          </div>
+          <div class="col"><div class="avopts" id="avOpts"></div></div>
         </div>
       </section>
 
@@ -585,7 +610,7 @@ function equity(hole, board, nOpp, iters){
 }
 
 /* ---------- state ---------- */
-const G = { manual:true, botPrefs:['rand','rand','rand','rand'], sel:new Set(), mode:'solo', help:true, actId:0, sbI:-1, bbI:-1, waitPlayers:false, seenHud:new Set(), myCore:new Set(), result:null, myStart:0, players:[], dealer:-1, deck:[], board:[], maxBet:0, minRaise:BB, street:'', hand:0,
+const G = { av:{...{h:0, hc:1, sk:1, sh:2, hat:0, hatc:1, gl:0, fh:0}}, manual:true, botPrefs:['rand','rand','rand','rand'], sel:new Set(), mode:'solo', help:true, actId:0, sbI:-1, bbI:-1, waitPlayers:false, seenHud:new Set(), myCore:new Set(), result:null, myStart:0, players:[], dealer:-1, deck:[], board:[], maxBet:0, minRaise:BB, street:'', hand:0,
   turn:-1, waiting:null, handOver:false, running:false, hi:new Set(), banner:'', hintEq:null, fast:false, muck:[] };
 
 const PERS = [
@@ -974,6 +999,19 @@ const HUMAN_LOOKS = [
   {shirt:0x8a6a2a, skin:0x9a6a48, hair:'bun', hairC:0x111111},
   {shirt:0x444a5a, skin:0xe0b090, hair:'short', hairC:0xb08040, hat:'cap', hatC:0xb03030},
 ];
+const AV = {
+  h:   [['short','Corto'], ['long','Largo'], ['bun','Moño'], ['slick','Engominado'], ['bald','Calvo']],
+  hc:  [0x1a1210, 0x3b2414, 0x6b4a2a, 0x8a3b1c, 0xc9a050, 0xd8d2c8, 0x2b4a9a, 0xc02a6a],
+  sk:  [0xf3d0b5, 0xe8c09a, 0xd2a07a, 0xb98159, 0x8d5a3b, 0x5e3a24],
+  sh:  [0xb3202a, 0x2f7d5b, 0x2b4a9a, 0x1e2a44, 0xe0b82e, 0x7a2b5a, 0xc7702c, 0x4f6b73, 0xf1ece2, 0x222228],
+  hat: [['', 'Ninguno'], ['cap', 'Gorra'], ['cowboy', 'Vaquero'], ['beanie', 'Gorro de lana']],
+  hatc:[0x6b4a2b, 0xb03030, 0x2b6cb0, 0x2f7d5b, 0x222228, 0xe0b82e, 0x7a2633],
+  gl:  [['', 'Ninguna'], ['glasses', 'Gafas'], ['shades', 'Gafas de sol']],
+  fh:  [['', 'Nada'], ['stache', 'Bigote'], ['beard', 'Barba']],
+};
+const AV_DEFAULT = {h:0, hc:1, sk:1, sh:2, hat:0, hatc:1, gl:0, fh:0};
+function cleanAv(a){ const o = {}; for (const k in AV_DEFAULT){ const n = Math.floor(+((a || {})[k])); o[k] = Number.isFinite(n) ? Math.max(0, Math.min(AV[k].length - 1, n)) : AV_DEFAULT[k]; } return o; }
+function lookFromAv(a){ a = cleanAv(a); return {hair:AV.h[a.h][0], hairC:AV.hc[a.hc], skin:AV.sk[a.sk], shirt:AV.sh[a.sh], hat:AV.hat[a.hat][0] || undefined, hatC:AV.hatc[a.hatc], glasses:AV.gl[a.gl][0] || undefined, stache:a.fh === 1, beard:a.fh === 2}; }
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const NET = { room:null, table:null, code:'', tableName:'', myPeer:null, seated:false, answered:-1, turnAi:-1, lastS:null, myHoleE:'', myHole:[], hostPub:'', hadHost:false };
 function celebrate(){ G.players.forEach((p, i) => { if (p.win && seats[i] && seats[i].person) seats[i].person.winT = clock.elapsedTime; }); }
@@ -1024,7 +1062,7 @@ function sendState(){
   const S = {h:G.hand, st:G.street, d:G.dealer, tu:G.turn, ai:G.actId, mb:G.maxBet, mr:G.minRaise, ho:G.handOver ? 1 : 0, wp:G.waitPlayers ? 1 : 0, sb:G.sbI, bb:G.bbI, bd:codes(G.board),
     P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:p.peer || '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
       c:p.chips, s0:p.s0 || 0, b:p.bet, t:p.total, f:p.folded ? 1 : 0, a:p.allIn ? 1 : 0, o:p.out ? 1 : 0, l:p.last, cr:p.canReraise ? 1 : 0, w:p.win ? 1 : 0,
-      hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0}))};
+      hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
   if (G.result) S.rs = {f:G.result.byFold ? 1 : 0, w:G.result.winners.map(w => [G.players.indexOf(w.p), w.amt])};
   NET.table.presence({role:'host', pub:myPub, S}).catch(() => {});
 }
@@ -1044,6 +1082,7 @@ function hostSeatSync(){
     const have = G.players.find(q => q.peer === pe.peer);
     if (have){
       if (pe.presence.pub && !have.pub) have.pub = String(pe.presence.pub);
+      if (pe.presence.av){ const av = cleanAv(pe.presence.av), sig = JSON.stringify(av); if (sig !== have.avSig){ have.av = av; have.avSig = sig; have.look = lookFromAv(av); } }
       const want = Math.floor(+pe.presence.loan || 0);
       if (want > have.loans){ have.loans = want; if (have.chips <= 0 && (!G.running || have.out)){ takeLoan(have); toast(`${have.name.toUpperCase()} PIDE UN PRÉSTAMO`, `Debe ${fmt(have.debt)} al casino.`, 'street', 2600); } }
       continue;
@@ -1052,7 +1091,7 @@ function hostSeatSync(){
     if (i < 0 && !G.running) i = G.players.findIndex((q, k) => k > 0 && q.kind === 'bot');
     if (i < 0) continue;  // table full: they watch
     const np = newPlayer({name:cleanName(pe.presence.name), kind:'remote', peer:pe.peer, pub:String(pe.presence.pub || '')});
-    np.look = HUMAN_LOOKS[i % HUMAN_LOOKS.length]; np.out = true;
+    np.av = cleanAv(pe.presence.av); np.avSig = JSON.stringify(np.av); np.look = lookFromAv(np.av); np.out = true;
     G.players[i] = np;
     toast(`${np.name.toUpperCase()} SE SIENTA`, G.running ? 'Jugará desde la próxima mano.' : 'Bienvenido a la mesa.', 'street', 2600);
   }
@@ -1090,7 +1129,7 @@ async function hostCreate(name, fill){
   NET.tableName = String(name || '').replace(/[^\p{L}\p{N} _.'-]/gu, '').trim().slice(0, 20) || 'Mesa de ' + myName();
   NET.table = await NET.room.join(NET.code, {host:true});
   G.mode = 'host'; G.fill = fill;
-  const ps = [newPlayer({name:myName()})]; G.players = ps;
+  const ps = [newPlayer({name:myName()})]; G.players = ps; ps[0].av = cleanAv(G.av);
   for (let i=1;i<N;i++) ps.push(fill ? makeBot(i) : emptySeat());
   G.dealer = 0; G.hand = 0; G.board = []; G.result = null; G.handOver = true; G.waitPlayers = true; clearCards();
   NET.table.onPeers(hostOnPeers);
@@ -1114,7 +1153,7 @@ async function clientJoin(code){
   $('#tableInfo').innerHTML = `Mesa: <b>${esc(code)}</b>`; $('#tableInfo').hidden = false;
   history.replaceState(null, '', location.pathname);
   G.handOver = true; G.waitPlayers = true; G.result = null;
-  NET.table.presence({role:'player', name:myName(), pub:myPub}).catch(() => {});
+  NET.table.presence({role:'player', name:myName(), pub:myPub, av:cleanAv(G.av)}).catch(() => {});
   NET.table.onPeers(ch => {
     const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer;
     const host = ch.peers.find(x => x.presence.role === 'host' && !x.sameTab);
@@ -1162,7 +1201,8 @@ async function applyState(S){
     if (q.sh) hole = decodes(q.sh);
     else if (v === 0 && mySeat >= 0 && NET.myHole.length === 2) hole = NET.myHole;
     else hole = Array.from({length:Math.min(2, +q.hc || 0)}, (_, k) => ({r:0, s:0, hid:`x${S.h}-${abs}-${k}`}));
-    ps.push({name:kind === 'bot' && lk ? lk.name : cleanName(q.n), kind, isBot:kind === 'bot', look:kind === 'bot' && lk ? lk.look : HUMAN_LOOKS[abs % HUMAN_LOOKS.length],
+    const av = q.av ? cleanAv(q.av) : null;
+    ps.push({name:kind === 'bot' && lk ? lk.name : cleanName(q.n), kind, isBot:kind === 'bot', avSig:av ? JSON.stringify(av) : '', look:kind === 'bot' && lk ? lk.look : av ? lookFromAv(av) : HUMAN_LOOKS[abs % HUMAN_LOOKS.length],
       chips:+q.c || 0, s0:+q.s0 || 0, bet:+q.b || 0, total:+q.t || 0, folded:!!q.f, allIn:!!q.a, out:!!q.o, last:String(q.l || '').slice(0, 24),
       canReraise:!!q.cr, win:!!q.w, shown:!!q.sh, picked:!!q.pk, bc:String(q.bc || ''), hole, debt:+q.dt || 0, repaid:+q.rp || 0, needs:false});
   }
@@ -1219,7 +1259,7 @@ function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); 
 function setMenu(open){ $('#startOv').hidden = !open; document.documentElement.classList.toggle('inmenu', open); }
 function setManual(v){ G.manual = v; $('#manualT').checked = v; $('#optManual').checked = v; try { localStorage.setItem('mv-manual', v ? '1' : '0'); } catch(e){} if (!v){ G.sel = new Set(); sendSel(); } render(); }
 function setHelp(v){ G.help = v; $('#helpT').checked = v; $('#optHelp').checked = v; try { localStorage.setItem('mv-help', v ? '1' : '0'); } catch(e){} render(); }
-function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', id === '#scrSetup'); }
+function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline', '#scrAvatar'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', id === '#scrSetup' || id === '#scrAvatar'); if (id === '#scrAvatar') startPreview(); else stopPreview(); }
 function persDesc(){
   const used = [...new Set(G.botPrefs)];
   $('#persDesc').innerHTML = used.map(id => { const p = PERS.find(x => x.id === id); return `<b>${p.name}</b>: ${p.desc}`; }).join('<br>');
@@ -1248,6 +1288,10 @@ function setupMenu(){
   $('#manualT').onchange = e => setManual(e.target.checked);
   $('#optManual').onchange = e => setManual(e.target.checked);
   buildBotRows();
+  try { const a = JSON.parse(localStorage.getItem('mv-avatar') || 'null'); if (a) G.av = cleanAv(a); } catch(e){}
+  buildAvatarOpts();
+  $('#goAvatar').onclick = () => { saveName(); showScreen('#scrAvatar'); };
+  $('#backAvatar').onclick = () => showScreen('#scrHome');
   let target = 'solo';
   $('#goSolo').onclick = () => { saveName(); target = 'solo'; $('#setupTitle').textContent = 'PARTIDA SOLO'; $('#botCfg').hidden = false; $('#bStart').textContent = 'EMPEZAR PARTIDA'; showScreen('#scrSetup'); };
   $('#goOnline').onclick = () => { saveName(); showScreen('#scrOnline'); };
@@ -1442,7 +1486,7 @@ function makePerson(look, standing){
   if (look.stache){ const s = M(new THREE.BoxGeometry(0.1, 0.022, 0.03), hairM); s.position.set(0, -0.05, 0.14); head.add(s); }
   if (look.glasses === 'glasses'){ const gm = lam(0x222222); for (const ex of [-0.05, 0.05]){ const r = M(new THREE.TorusGeometry(0.03, 0.007, 3, 6), gm); r.position.set(ex, 0.025, 0.142); head.add(r); } }
   if (look.glasses === 'shades'){ const s = M(new THREE.BoxGeometry(0.2, 0.05, 0.02), flat(0x050505)); s.position.set(0, 0.03, 0.135); head.add(s); }
-  if (look.hat === 'cowboy'){ const hm = flat(0x6b4a2b); const brim = M(new THREE.CylinderGeometry(0.28, 0.28, 0.015, 8), hm); brim.position.y = 0.1; head.add(brim); const cr = M(new THREE.CylinderGeometry(0.12, 0.15, 0.15, 6), hm); cr.position.y = 0.18; head.add(cr); }
+  if (look.hat === 'cowboy'){ const hm = flat(look.hatC ?? 0x6b4a2b); const brim = M(new THREE.CylinderGeometry(0.28, 0.28, 0.015, 8), hm); brim.position.y = 0.1; head.add(brim); const cr = M(new THREE.CylinderGeometry(0.12, 0.15, 0.15, 6), hm); cr.position.y = 0.18; head.add(cr); }
   if (look.hat === 'cap'){ const hm = flat(look.hatC); cap(1, 0.04, hm); const v = M(new THREE.BoxGeometry(0.2, 0.012, 0.13), hm); v.position.set(0, 0.05, 0.17); head.add(v); }
   if (look.hat === 'beanie'){ const c = cap(1.25, 0.02, flat(look.hatC)); c.rotation.x = -0.1; }
   parts.arms = [-1, 1].map(sx => {
@@ -1648,7 +1692,7 @@ function ensurePeople(){
     const s = seats[i];
     if (!s.tag){ s.tag = document.createElement('div'); s.tag.className = 'tag'; tagsEl.appendChild(s.tag); }
     if (p.kind === 'empty'){ if (s.person){ scene.remove(s.person); s.person = null; } s.name = null; return; }
-    const id = p.kind + '|' + p.name;
+    const id = p.kind + '|' + p.name + '|' + (p.avSig || '');
     if (s.name === id) return;
     if (s.person) scene.remove(s.person);
     const per = makePerson(p.look || HUMAN_LOOKS[i % HUMAN_LOOKS.length], false);
@@ -1862,6 +1906,45 @@ resize();
 render();
 $('#loading').remove();
 requestAnimationFrame(frame);
+let pv = null;
+function startPreview(){
+  if (pv) return;
+  const box = $('#avBox'); box.innerHTML = '';
+  const cv = document.createElement('canvas'); box.appendChild(cv);
+  const w = box.clientWidth || 320, h = box.clientHeight || 300;
+  const r = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
+  r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(w, h, false);
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xfff0e0, 0x553322, 0.9));
+  const d = new THREE.DirectionalLight(0xffe2b0, 0.8); d.position.set(1.5, 3, 3); sc.add(d);
+  const cam = new THREE.PerspectiveCamera(30, w / h, 0.1, 20); cam.position.set(0, 1.35, 3.1); cam.lookAt(0, 1.0, 0);
+  pv = {r, sc, cam, fig:null, raf:0};
+  rebuildPreview();
+  const loop = () => { if (!pv) return; pv.raf = requestAnimationFrame(loop); const t = clock.elapsedTime;
+    if (pv.fig){ pv.fig.rotation.y = Math.sin(t * 0.6) * 0.7; animatePerson(pv.fig, t, {}); } pv.r.render(pv.sc, pv.cam); };
+  loop();
+}
+function rebuildPreview(){ if (!pv) return; if (pv.fig) pv.sc.remove(pv.fig); pv.fig = makePerson(lookFromAv(G.av), false); pv.sc.add(pv.fig); }
+function stopPreview(){ if (!pv) return; cancelAnimationFrame(pv.raf); try { pv.r.dispose(); pv.r.forceContextLoss(); } catch(e){} pv = null; $('#avBox').innerHTML = ''; }
+function saveAv(){ try { localStorage.setItem('mv-avatar', JSON.stringify(G.av)); } catch(e){} }
+function buildAvatarOpts(){
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  const sel = (k, label) => `<span class="bl">${label}</span><select data-k="${k}" aria-label="${label}">${AV[k].map((o, i) => `<option value="${i}">${o[1]}</option>`).join('')}</select>`;
+  const sws = (k, label) => `<span class="bl">${label}</span><div class="sws" role="group" aria-label="${label}">${AV[k].map((c, i) => `<button class="sw" data-k="${k}" data-i="${i}" style="background:${hex(c)}" aria-label="${label} ${i + 1}"></button>`).join('')}</div>`;
+  $('#avOpts').innerHTML = sel('h', 'Pelo') + sws('hc', 'Color de pelo') + sws('sk', 'Piel') + sws('sh', 'Camisa') + sel('hat', 'Sombrero') + `<span class="bl hatc">Color del sombrero</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Gafas') + sel('fh', 'Cara');
+  const hcGroup = $('#avOpts [data-k="hatc"]').parentElement; hcGroup.classList.add('hatc'); hcGroup.setAttribute('aria-label', 'Color del sombrero');
+  document.querySelectorAll('#avOpts [data-k="hatc"]').forEach((el, i) => el.setAttribute('aria-label', 'Color del sombrero ' + (i + 1)));
+  syncAvatarOpts();
+  $('#avOpts').addEventListener('change', e => { const k = e.target.dataset.k; if (!k) return; G.av[k] = +e.target.value; G.av = cleanAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
+  $('#avOpts').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; G.av[b.dataset.k] = +b.dataset.i; G.av = cleanAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
+}
+function syncAvatarOpts(){
+  document.querySelectorAll('#avOpts select').forEach(el => el.value = G.av[el.dataset.k]);
+  document.querySelectorAll('#avOpts .sw').forEach(el => el.setAttribute('aria-pressed', String(G.av[el.dataset.k] === +el.dataset.i)));
+  const hatOn = G.av.hat > 0;
+  document.querySelectorAll('#avOpts .hatc').forEach(el => el.style.visibility = hatOn ? 'visible' : 'hidden');
+}
+
 setupMenu();
 })();
 </script>
