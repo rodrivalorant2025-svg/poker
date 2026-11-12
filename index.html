@@ -86,7 +86,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 @keyframes tin{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
 @keyframes tout{to{transform:translateY(-6px);opacity:0}}
 
-.tag{position:absolute;transform:translate(-50%,-100%);pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-variant-numeric:tabular-nums lining-nums}
+.tag{position:absolute;left:0;top:0;will-change:transform;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-variant-numeric:tabular-nums lining-nums}
 .tag .ck{font-size:14px;font-weight:800;padding:1px 10px;color:var(--txt);background:linear-gradient(180deg,var(--wood1),var(--wood3));border:2px solid var(--brass-lo);border-radius:7px}
 .tag .act{font-family:var(--f-title);font-size:14px;font-weight:800;color:var(--gold);padding:1px 8px;background:rgba(0,0,0,.6);border-radius:5px;white-space:nowrap;letter-spacing:.05em}
 .tag .act:empty{display:none}
@@ -1294,10 +1294,16 @@ const rim2 = new THREE.PointLight(0x3dc8ff, 0.45, 9); rim2.position.set(3.5, 2.2
 scene.traverse(o => { if (o.isLight) o.layers.enable(1); });
 
 const matCache = {};
-const flat = (c) => matCache['f'+c] || (matCache['f'+c] = new THREE.MeshPhongMaterial({color:c, flatShading:true, shininess:8, specular:0x222222}));
+const flat = (c) => { let m = matCache['f'+c]; if (!m){ m = matCache['f'+c] = new THREE.MeshLambertMaterial({color:c}); m.userData.flat = true; } return m; };
 const lam = (c) => matCache['l'+c] || (matCache['l'+c] = new THREE.MeshLambertMaterial({color:c}));
 function canvasTex(w, h, draw, aniso){ const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); if (aniso) t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); return t; }
-const M = (geo, m) => new THREE.Mesh(geo, m);
+const flatGeoCache = new WeakMap();
+function flatGeo(g){
+  let f = flatGeoCache.get(g);
+  if (!f){ f = g.index ? g.toNonIndexed() : g.clone(); f.computeVertexNormals(); flatGeoCache.set(g, f); }
+  return f;
+}
+const M = (geo, m) => new THREE.Mesh(m && !Array.isArray(m) && m.userData.flat ? flatGeo(geo) : geo, m);
 const blobTex = canvasTex(64, 64, (x) => { const g = x.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'rgba(0,0,0,.6)'); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0,0,64,64); });
 const blobMat = new THREE.MeshBasicMaterial({map:blobTex, transparent:true, depthWrite:false});
 function blob(r, x, y, z, sx=1, sz=1){ const b = M(new THREE.PlaneGeometry(r*2, r*2), blobMat); b.rotation.x = -Math.PI/2; b.position.set(x, y, z); b.scale.set(sx, sz, 1); scene.add(b); return b; }
@@ -1357,7 +1363,7 @@ const rail = M(new THREE.TorusGeometry(1, 0.085, 6, 32), flat(0x2a140c));
 rail.rotation.x = Math.PI/2; rail.scale.set(1.8, 1.19, 1.1); rail.position.y = TOP + 0.03; scene.add(rail);
 const tray = M(new THREE.BoxGeometry(0.62, 0.03, 0.14), flat(0x111111)); tray.position.set(0, TOP + 0.015, -1.0); scene.add(tray);
 // hanging lamp
-const shade = M(new THREE.CylinderGeometry(0.28, 0.75, 0.38, 8, 1, true), new THREE.MeshPhongMaterial({color:0x1d5a3f, flatShading:true, side:THREE.DoubleSide}));
+const shade = M(new THREE.CylinderGeometry(0.28, 0.75, 0.38, 8, 1, true), Object.assign(new THREE.MeshLambertMaterial({color:0x1d5a3f, side:THREE.DoubleSide}), {userData:{flat:true}}));
 shade.position.set(0, 2.85, 0.1); scene.add(shade);
 const bulb = M(new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshBasicMaterial({color:0xfff1d0, fog:false})); bulb.position.set(0, 2.76, 0.1); scene.add(bulb);
 const cord = M(new THREE.CylinderGeometry(0.01, 0.01, 2.5, 4), lam(0x111111)); cord.position.set(0, 4.25, 0.1); scene.add(cord);
@@ -1387,7 +1393,7 @@ function makePerson(look, standing){
   const chest = M(GEO.chest, shirt); chest.position.y = 0.33; torso.add(chest);
   const sh = M(GEO.shoulders, shirt); sh.scale.set(1.25, 0.55, 0.85); sh.position.y = 0.62; torso.add(sh);
   if (standing){
-    const vest = M(new THREE.CylinderGeometry(0.216, 0.196, 0.5, 7, 1, true, -Math.PI*0.75, Math.PI*1.5), new THREE.MeshPhongMaterial({color:0x15151f, flatShading:true, side:THREE.DoubleSide}));
+    const vest = M(new THREE.CylinderGeometry(0.216, 0.196, 0.5, 7, 1, true, -Math.PI*0.75, Math.PI*1.5), Object.assign(new THREE.MeshLambertMaterial({color:0x15151f, side:THREE.DoubleSide}), {userData:{flat:true}}));
     vest.position.y = 0.3; vest.rotation.y = Math.PI; torso.add(vest);
     const bow = M(new THREE.BoxGeometry(0.12, 0.05, 0.03), flat(0xc21f2a)); bow.position.set(0, 0.64, 0.17); torso.add(bow);
   }
@@ -1480,6 +1486,8 @@ function launchWalker(w){
   w.r = 4.1 + Math.random() * 1.1;
   w.speed = (0.55 + Math.random() * 0.35) / w.r;     // ~0.55-0.9 m/s along the arc
   w.a = w.dir > 0 ? WALK_A0 : WALK_A1;
+  w.g.position.set(Math.cos(w.a) * w.r, 0, Math.sin(w.a) * w.r * 0.9);
+  w.g.rotation.y = Math.atan2(-Math.sin(w.a) * w.dir, Math.cos(w.a) * 0.9 * w.dir);
   w.g.visible = true;
 }
 for (let i = 0; i < 5; i++){
@@ -1666,7 +1674,7 @@ function layoutTags(){
   G.players.forEach((p, i) => {
     if (i === 0 || !seats[i].tag) return;
     const sp = seatPos(i); const s = project(new V3(sp.x, 1.66, sp.z));
-    seats[i].tag.style.left = s.x + 'px'; seats[i].tag.style.top = s.y + 'px';
+    seats[i].tag.style.transform = `translate(${s.x.toFixed(1)}px, ${s.y.toFixed(1)}px) translate(-50%, -100%)`;
   });
 }
 
@@ -1776,7 +1784,7 @@ camera.layers.enable(1);
 function resize(){
   const aspect = innerWidth / innerHeight;
   const h = Math.min(INTERNAL_H, innerHeight), w = Math.round(h * aspect);
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1) * QUALITY.scale);
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = aspect;
   camera.fov = aspect < 1.5 ? 56 : 48;
@@ -1785,10 +1793,20 @@ function resize(){
 }
 addEventListener('resize', resize);
 let acc = 0;
+const QUALITY = {scale:1, slow:0, frames:0};
+function watchSpeed(dt){
+  // if frames keep taking longer than ~22 ms, render at a lower resolution (once or twice, never back up mid-game)
+  if (QUALITY.scale <= 0.6 || document.hidden) return;
+  QUALITY.frames++; if (dt > 0.022) QUALITY.slow++;
+  if (QUALITY.frames >= 120){
+    if (QUALITY.slow > 60){ QUALITY.scale = Math.max(0.6, QUALITY.scale - 0.2); renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1) * QUALITY.scale); renderer.setSize(innerWidth, innerHeight, false); }
+    QUALITY.frames = 0; QUALITY.slow = 0;
+  }
+}
 function frame(){
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.1); const t = clock.elapsedTime;
-  acc += dt; if (acc < 1/60 - 0.002) return; const step = Math.min(acc, 0.1); acc = 0;
+  acc += dt; if (acc < 1/60 - 0.002) return; const step = Math.min(acc, 0.1); acc = 0; watchSpeed(step);
   for (const m of cardMeshes.values()){
     const u = m.userData; if (u.settled) continue;
     if (!u.launched){ u.launched = true; crState.dealT = t; }
