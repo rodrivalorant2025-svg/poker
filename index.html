@@ -1254,6 +1254,23 @@ scene.fog = new THREE.Fog(FOG, 4.5, 11);
 const camera = new THREE.PerspectiveCamera(48, 1, 0.05, 30);
 camera.position.set(0, 1.82, 3.05);
 camera.lookAt(0, 0.72, -0.35);
+// gentle head movement that follows the mouse (off when the viewer prefers reduced motion)
+const CAM_POS = new THREE.Vector3(0, 1.82, 3.05), CAM_LOOK = new THREE.Vector3(0, 0.72, -0.35);
+const camLook = CAM_LOOK.clone(), mouse = {x:0, y:0}, camAim = {x:0, y:0};
+const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+addEventListener('pointermove', e => { if (calm || e.pointerType === 'touch') return; mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1; });
+document.addEventListener('pointerleave', () => { mouse.x = 0; mouse.y = 0; });
+addEventListener('blur', () => { mouse.x = 0; mouse.y = 0; });
+function moveCamera(step){
+  const k = 1 - Math.exp(-step * 2.5);
+  const dx = mouse.x - camAim.x, dy = mouse.y - camAim.y;
+  if (Math.abs(dx) < 1e-4 && Math.abs(dy) < 1e-4) return false;
+  camAim.x += dx * k; camAim.y += dy * k;
+  camera.position.set(CAM_POS.x + camAim.x * 0.06, CAM_POS.y - camAim.y * 0.025, CAM_POS.z);
+  camLook.set(CAM_LOOK.x + camAim.x * 0.2, CAM_LOOK.y - camAim.y * 0.1, CAM_LOOK.z);
+  camera.lookAt(camLook);
+  return true;
+}
 const clock = new THREE.Clock();
 const INTERNAL_H = 640;
 
@@ -1726,6 +1743,7 @@ function frame(){
     m.quaternion.slerp(u.tq, 1 - Math.exp(-step*8));
     if (dist < 0.0005 && m.quaternion.angleTo(u.tq) < 0.002){ m.position.copy(u.tp); m.quaternion.copy(u.tq); u.settled = true; }
   }
+  if (moveCamera(step)) layoutTags();
   dBtn.position.lerp(dTarget, 1 - Math.exp(-step*5));
   if (ring.visible) ring.material.opacity = 0.45 + Math.sin(t*4)*0.3;
   G.players.forEach((p, i) => { const s = seats[i]; if (s.person) animatePerson(s.person, t, {folded:p.folded, turn:G.turn === i, winT:s.person.winT}); });
