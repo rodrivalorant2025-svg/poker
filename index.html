@@ -210,8 +210,8 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .shop .ip{font-family:var(--f-title);font-weight:800;color:var(--gold);font-size:17px}
 .shop .btn{margin-top:4px}
 .sw.lockd{position:relative;opacity:.85}
-.sw.lockd::after{content:attr(data-price);position:absolute;left:50%;top:100%;transform:translateX(-50%);font:800 9px var(--f-title);color:var(--gold);white-space:nowrap;text-shadow:0 1px 1px #000}
-.sws:has(.lockd){padding-bottom:10px}
+.sw.lockd::after{content:attr(data-price);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);font:800 12.5px var(--f-title);color:var(--gold);white-space:nowrap;text-shadow:0 1px 1px #000}
+.sws:has(.lockd){padding-bottom:22px;row-gap:26px;column-gap:9px}
 .buybar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:rgba(0,0,0,.35);border:1px solid var(--gold);border-radius:9px;padding:8px 10px;font-size:13.5px}
 .buybar b{color:var(--txt)} .buybar b.pr{color:var(--gold)} .buybar .no{color:var(--bad);font-size:12.5px}
 .wallet{display:flex;gap:22px;justify-content:center;align-items:baseline}
@@ -1214,7 +1214,7 @@ function loadWallet(){ try { const w = JSON.parse(localStorage.getItem('lpp-wall
 let WALLET = loadWallet();
 function saveWallet(){
   const me = G.players[0]; if (!me || me.kind === 'empty') return;
-  if (G.mode === 'client' && !NET.seated) return;
+  if (G.mode === 'client' && (!NET.seated || !NET.walOk)) return;
   const w = {chips:Math.max(0, Math.floor(me.chips + (me.bet || 0) * 0)), debt:Math.max(0, Math.floor(me.debt || 0))};
   if (w.chips === WALLET.chips && w.debt === WALLET.debt) return;
   WALLET = w; try { localStorage.setItem('lpp-wallet', JSON.stringify(w)); } catch(e){}
@@ -1402,6 +1402,7 @@ function ownAv(a){ a = cleanAv(a); for (const k in a) if (locked(k, a[k])) a[k] 
 function cleanAv(a){ const o = {}; for (const k in AV_DEFAULT){ const n = Math.floor(+((a || {})[k])); o[k] = Number.isFinite(n) ? Math.max(0, Math.min(AV[k].length - 1, n)) : AV_DEFAULT[k]; } return o; }
 function lookFromAv(a){ a = cleanAv(a); return {hair:AV.h[a.h][0], hairC:AV.hc[a.hc], skin:AV.sk[a.sk], shirt:AV.sh[a.sh], top:AV.tp[a.tp][0], hat:AV.hat[a.hat][0] || undefined, hatC:AV.hatc[a.hatc], glasses:AV.gl[a.gl][0] || undefined, stache:a.fh === 1, beard:a.fh === 2, acc:AV.acc[a.acc][0] || undefined}; }
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const PROTO = 5;   // bump when the online messages change
 const NET = { room:null, table:null, code:'', tableName:'', myPeer:null, seated:false, answered:-1, turnAi:-1, lastS:null, myHoleE:'', myHole:[], hostPub:'', hadHost:false };
 function celebrate(){ G.players.forEach((p, i) => { if (p.win && seats[i] && seats[i].person) seats[i].person.winT = clock.elapsedTime; }); }
 
@@ -1448,10 +1449,10 @@ let bcQueued = false;
 function broadcast(){ if (bcQueued || !NET.table) return; bcQueued = true; queueMicrotask(() => { bcQueued = false; sendState(); }); }
 const KIND = {me:'h', remote:'r', bot:'b', empty:'e'};
 function sendState(){
-  const S = {h:G.hand, st:G.street, d:G.dealer, tu:G.turn, ai:G.actId, mb:G.maxBet, mr:G.minRaise, ho:G.handOver ? 1 : 0, wp:G.waitPlayers ? 1 : 0, sb:G.sbI, bb:G.bbI, bd:codes(G.board),
+  const S = {v:PROTO, h:G.hand, st:G.street, d:G.dealer, tu:G.turn, ai:G.actId, mb:G.maxBet, mr:G.minRaise, ho:G.handOver ? 1 : 0, wp:G.waitPlayers ? 1 : 0, sb:G.sbI, bb:G.bbI, bd:codes(G.board),
     P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:(p.kind === 'me' ? NET.myPeer : p.peer) || '', pb:p.kind === 'remote' ? String(p.pub || '').slice(-16) : '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
       c:p.chips, s0:p.s0 || 0, b:p.bet, t:p.total, f:p.folded ? 1 : 0, a:p.allIn ? 1 : 0, o:p.out ? 1 : 0, l:p.last, cr:p.canReraise ? 1 : 0, w:p.win ? 1 : 0,
-      hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
+      hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, wo:p.walOk ? 1 : 0, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
   if (G.result) S.rs = {f:G.result.byFold ? 1 : 0, w:G.result.winners.map(w => [G.players.indexOf(w.p), w.amt]),
     p:(G.result.pots || []).map(pt => [pt.amt, pt.ws.map(w => G.players.indexOf(w))]), r:(G.result.returns || []).map(x => [G.players.indexOf(x.p), x.amt])};
   NET.table.presence({role:'host', pub:myPub, S}).catch(() => {});
@@ -1470,6 +1471,7 @@ function hostSeatSync(){
   if (G.players[0] && G.players[0].kind === 'me') G.players[0].av = ownAv(G.av);
   for (const pe of NET.table.peers()){
     if (pe.sameTab || pe.kind !== 'viewer' || pe.presence.role !== 'player') continue;
+    if (pe.presence.v !== PROTO) continue;   // a guest on another version is not seated (their game tells them to reload)
     const pub = String(pe.presence.pub || '');
     let have = G.players.find(q => q.peer === pe.peer);
     if (!have){
@@ -1489,7 +1491,7 @@ function hostSeatSync(){
     if (i < 0) continue;  // table full: they watch
     const np = newPlayer({name:cleanName(pe.presence.name), kind:'remote', peer:pe.peer, pub:String(pe.presence.pub || '')});
     const wal = pe.presence.wal || {}; const clampW = v => Math.max(0, Math.min(WALLET_MAX, Math.floor(+v) || 0));
-    if (pe.presence.wal){ np.chips = clampW(wal.c); np.debt = clampW(wal.d); }
+    if (pe.presence.wal){ np.chips = clampW(wal.c); np.debt = clampW(wal.d); np.walOk = true; }
     np.av = cleanAv(pe.presence.av); np.avSig = JSON.stringify(np.av); np.look = lookFromAv(np.av); np.out = true;
     G.players[i] = np;
     toast(`${np.name.toUpperCase()} SE SIENTA`, G.running ? 'Jugará desde la próxima mano.' : 'Bienvenido a la mesa.', 'street', 2600);
@@ -1559,7 +1561,7 @@ async function clientJoin(code){
   $('#tableInfo').innerHTML = `Mesa: <b>${esc(code)}</b>`; $('#tableInfo').hidden = false;
   history.replaceState(null, '', location.pathname);
   G.handOver = true; G.waitPlayers = true; G.result = null;
-  NET.table.presence({role:'player', name:myName(), pub:myPub, av:ownAv(G.av), wal:{c:WALLET.chips, d:WALLET.debt}}).catch(() => {});
+  NET.table.presence({role:'player', v:PROTO, name:myName(), pub:myPub, av:ownAv(G.av), wal:{c:WALLET.chips, d:WALLET.debt}}).catch(() => {});
   NET.table.onPeers(ch => {
     const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer;
     readChat(ch.peers);
@@ -1588,6 +1590,7 @@ function hostGone(text){
 }
 async function applyState(S){
   if (!S || !Array.isArray(S.P) || S.P.length !== N) return;
+  if (S.v !== PROTO){ hostGone('Esta mesa usa otra versión del juego. Recargad todos la página con Ctrl + F5 y volved a entrar. Tu dinero no ha cambiado.'); return; }
   const myTag = myPub ? myPub.slice(-16) : '';
   const mySeat = S.P.findIndex(q => (q.pe && q.pe === NET.myPeer) || (myTag && q.pb === myTag));
   if (mySeat >= 0){
@@ -1599,6 +1602,7 @@ async function applyState(S){
     }
   }
   NET.seated = mySeat >= 0;
+  NET.walOk = mySeat >= 0 && S.P[mySeat].wo === 1;
   const rot = mySeat >= 0 ? mySeat : 0;
   const V = i => (i < 0 || i == null ? -1 : (i - rot + N) % N);
   const prevHand = G.hand, prevStreet = G.street, prevHO = G.handOver;
@@ -2272,7 +2276,7 @@ function render(){
   const dEl = $('#debt'); dEl.textContent = fmt(me.debt || 0); dEl.className = 'val' + (me.debt > 0 ? ' down' : '');
   const netEl = $('#net'); netEl.textContent = (net > 0 ? '+' : net < 0 ? '−' : '') + fmt(Math.abs(net)); netEl.className = 'val' + (net > 0 ? ' up' : net < 0 ? ' down' : '');
   $('#myChips2').textContent = fmt(me.chips);
-  if (G.mode === 'client' && NET.seated && G.handOver) saveWallet();
+  if (G.mode === 'client' && NET.seated && NET.walOk && G.handOver) saveWallet();
   renderControls();
   if (G.mode === 'host') broadcast();
 }
