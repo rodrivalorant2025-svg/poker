@@ -469,7 +469,7 @@ html.inmenu .bottom > *{transition-delay:0s}
 function makeMqttRoom(){
   const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'];
   const BASE = 'lowpolypoker1';
-  const STALE = 45000, BEAT = 15000;
+  const STALE = 180000, BEAT = 15000;
   const noop = () => {};
   const rid = () => 'c' + Math.random().toString(36).slice(2, 12);
   const td = new TextDecoder();
@@ -477,7 +477,7 @@ function makeMqttRoom(){
   function connect(url, myTopic){
     return new Promise((res, rej) => {
       let done = false;
-      const c = mqtt.connect(url, {clientId:rid(), clean:true, keepalive:30, reconnectPeriod:2500, connectTimeout:7000,
+      const c = mqtt.connect(url, {clientId:rid(), clean:true, keepalive:120, reconnectPeriod:2000, connectTimeout:7000,
         will:{topic:myTopic, payload:'', retain:true, qos:0}});
       const t = setTimeout(() => { if (!done){ done = true; try { c.end(true); } catch(e){} rej({code:'servidor'}); } }, 8000);
       c.once('connect', () => { if (done) return; done = true; clearTimeout(t); res(c); });
@@ -523,6 +523,10 @@ function makeMqttRoom(){
     const send = () => { pubT = null; if (!left) client.publish(topicOf(myId), JSON.stringify({p:mine, t:Date.now()}), {retain:true, qos:0}); };
     client.on('connect', () => { if (!left) send(); });         // re-announce after a reconnection
     beat = setInterval(send, BEAT);
+    // a tab coming back to the front announces itself right away (background tabs have slowed timers)
+    const wake = () => { if (!document.hidden && !left){ if (!client.connected) client.reconnect(); else send(); } };
+    document.addEventListener('visibilitychange', wake);
+    addEventListener('online', wake);
     prune = setInterval(() => {                                   // drop players whose heartbeat stopped
       const now = Date.now(); let ch = false; const old = new Map(roster);
       for (const [id, e] of roster) if (id !== myId && now - e.seen > STALE){ roster.delete(id); ch = true; }
@@ -1372,7 +1376,7 @@ function lobbyAnnounce(){
 function vacate(p){ const i = G.players.indexOf(p); if (i > 0) G.players[i] = G.fill ? makeBot(i) : emptySeat(); }
 function hostSeatSync(){
   if (!NET.table) return;
-  if (!G.running) G.players.slice().forEach(p => { if (p.left) vacate(p); });
+  if (!G.running) G.players.slice().forEach(p => { if (isGone(p)) vacate(p); });
   for (const pe of NET.table.peers()){
     if (pe.sameTab || pe.kind !== 'viewer' || pe.presence.role !== 'player') continue;
     const pub = String(pe.presence.pub || '');
@@ -1382,6 +1386,7 @@ function hostSeatSync(){
       if (same){ same.peer = pe.peer; same.left = false; have = same; }   // the same player reconnected or joined twice: keep one seat
     }
     if (have){
+      if (have.left){ have.left = false; clearTimeout(have.goneT); }   // back after a short drop
       if (pe.presence.pub && !have.pub) have.pub = String(pe.presence.pub);
       if (pe.presence.av){ const av = cleanAv(pe.presence.av), sig = JSON.stringify(av); if (sig !== have.avSig){ have.av = av; have.avSig = sig; have.look = lookFromAv(av); } }
       const want = Math.floor(+pe.presence.loan || 0);
@@ -1398,13 +1403,20 @@ function hostSeatSync(){
   }
   lobbyAnnounce();
 }
+const GONE_AFTER = 30000;   // a short drop (wifi blip, background tab) must not cost anyone their seat
+const isGone = p => p.left && Date.now() - (p.leftAt || 0) > GONE_AFTER;
 function hostOnPeers(ch){
   for (const pe of ch.left){
     const p = G.players.find(q => q.peer === pe.peer);
-    if (!p) continue;
-    p.left = true;
-    toast(`${p.name.toUpperCase()} SE HA IDO`, G.running ? 'Se retira de esta mano.' : '', 'street', 2600);
-    if (!G.running) vacate(p);
+    if (!p || p.left) continue;
+    p.left = true; p.leftAt = Date.now();
+    clearTimeout(p.goneT);
+    p.goneT = setTimeout(() => {
+      if (!isGone(p) || !G.players.includes(p)) return;
+      toast(`${p.name.toUpperCase()} SE HA IDO`, G.running ? 'Se retira de esta mano.' : '', 'street', 2600);
+      if (!G.running) vacate(p);
+      render();
+    }, GONE_AFTER + 200);
   }
   hostSeatSync();
   render();
@@ -1415,7 +1427,7 @@ function remoteMove(p){
   return new Promise(res => {
     const t0 = Date.now();
     const iv = setInterval(() => {
-      if (p.left) return done(free());
+      if (isGone(p)) return done(free());
       const pe = NET.table && NET.table.peers().find(x => x.peer === p.peer);
       const a = pe && pe.presence.act;
       if (a && a.id === id) return done({t:['fold','call','raise'].includes(a.t) ? a.t : 'call', to:+a.to || 0});
@@ -1459,7 +1471,14 @@ async function clientJoin(code){
     const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer;
     readChat(ch.peers);
     const host = ch.peers.find(x => x.presence.role === 'host' && !x.sameTab);
-    if (!host){ if (NET.hadHost) hostGone(); return; }
+    if (!host){
+      if (NET.hadHost && !NET.lostT){
+        toast('RECONECTANDO CON LA MESA…', 'Se ha cortado la conexión con el anfitrión. Esperando a que vuelva.', 'street', 6000);
+        NET.lostT = setTimeout(() => { NET.lostT = null; if (!NET.table || !NET.table.peers().some(x => x.presence.role === 'host' && !x.sameTab)) hostGone(); }, 30000);
+      }
+      return;
+    }
+    if (NET.lostT){ clearTimeout(NET.lostT); NET.lostT = null; }
     NET.hadHost = true; NET.hostPub = String(host.presence.pub || '');
     const S = host.presence.S;
     if (S && S !== NET.lastS){ NET.lastS = S; applyState(S); }
