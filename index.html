@@ -2226,7 +2226,10 @@ function renderControls(){
       if (!G.manual) hint = hint.replace('<div class="rec"><small>', '<div>').replace('</small></div>', '</div>');
     } else hint += `<div class="rec"><small>${describeHole(me.hole).toUpperCase()}${myTurn && G.hintEq != null ? ` · PROB. DE GANAR ${Math.round(G.hintEq*100)}%` : ''}</small></div>`;
   }
-  $('#hint').innerHTML = coverMine() && !G.peek && hint ? 'PASA EL RATÓN POR TUS CARTAS PARA VERLAS' : hint;
+  // covered cards: say nothing about the hand, but keep the "use" button so it can still be pressed
+  $('#hint').innerHTML = coverMine() && !G.peek && hint
+    ? 'PASA EL RATÓN POR TUS CARTAS PARA VERLAS' + (hint.includes('id="bUseRec"') ? '<div class="rec"><button class="btn tiny" id="bUseRec">USAR LA JUGADA RECOMENDADA</button></div>' : '')
+    : hint;
 }
 
 /* ---------- loop ---------- */
