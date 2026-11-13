@@ -196,7 +196,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .startbox .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:22px;align-items:start}
 .startbox .col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .startbox .col .sect{border-top:0;padding-top:0;margin-top:0}
-.avbox{height:300px;border-radius:10px;background:radial-gradient(ellipse at 50% 40%,rgba(255,220,160,.18),rgba(0,0,0,.35) 75%);overflow:hidden}
+.avbox{height:250px;border-radius:10px;background:radial-gradient(ellipse at 50% 40%,rgba(255,220,160,.18),rgba(0,0,0,.35) 75%);overflow:hidden}
 .avbox canvas{width:100%;height:100%;display:block}
 .wallet{text-align:center;font-size:14px;color:var(--txt)}
 .wallet b{color:var(--gold);font-family:var(--f-title);font-weight:800;font-size:17px}
@@ -209,8 +209,19 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .shop .ik{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
 .shop .ip{font-family:var(--f-title);font-weight:800;color:var(--gold);font-size:17px}
 .shop .btn{margin-top:4px}
+.sw.lockd{position:relative;opacity:.85}
+.sw.lockd::after{content:attr(data-price);position:absolute;left:50%;top:100%;transform:translateX(-50%);font:800 9px var(--f-title);color:var(--gold);white-space:nowrap;text-shadow:0 1px 1px #000}
+.sws:has(.lockd){padding-bottom:10px}
+.buybar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:rgba(0,0,0,.35);border:1px solid var(--gold);border-radius:9px;padding:8px 10px;font-size:13.5px}
+.buybar b{color:var(--txt)} .buybar b.pr{color:var(--gold)} .buybar .no{color:var(--bad);font-size:12.5px}
+.wallet{display:flex;gap:22px;justify-content:center;align-items:baseline}
+.wallet .wc{font-family:var(--f-title);font-weight:800;font-size:13px;letter-spacing:.1em;color:var(--dim)}
+.wallet b.money,.wallet b.debt{font-size:26px;letter-spacing:.02em;margin-left:6px}
+.wallet b.money{color:#5fe08a}
+.wallet b.debt{color:#ff5a5a}
+.scrhead .wallet b.money,.scrhead .wallet b.debt{font-size:20px}
 .sw.vip{box-shadow:0 0 0 2px var(--gold),inset 0 1px 0 rgba(255,255,255,.25)}
-.avopts{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center}
+.avopts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center}
 .avopts .bl{font-size:14px;color:var(--dim)}
 .avopts select{font:700 14px var(--f-ui);color:var(--txt);background:rgba(0,0,0,.45);border:1px solid rgba(217,180,90,.45);border-radius:7px;padding:7px 9px;min-width:0}
 .avopts select:focus-visible{outline:2px solid var(--brass-hi);outline-offset:1px}
@@ -284,6 +295,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .logo .l1{--o:3px;--d:2px}
 .logo .l1{font-size:clamp(28px,3.4vw,46px);letter-spacing:.3em;margin-right:-.3em}
 .logo .l2{font-size:clamp(64px,8vw,116px)}
+@media (max-height:820px){ .logo .l1{font-size:26px} .logo .l2{font-size:68px} .logo .l3{font-size:13px;margin-top:4px} .helpov{gap:12px} .startbox .in{padding-block:16px} .avopts select{padding:5px 9px} }
 .logo .l3{margin-top:8px;font-size:15px;color:var(--txt);text-shadow:0 2px 4px rgba(0,0,0,.9)}
 @keyframes logoIn{from{transform:translateY(-30px) scale(.92);opacity:0}to{transform:none;opacity:1}}
 /* game panels hide while the menu is open and slide in when play starts */
@@ -384,7 +396,7 @@ html.inmenu .bottom > *{transition-delay:0s}
           <button class="btn call big" id="goSolo">JUGAR SOLO<small>Tú contra 4 bots</small></button>
           <button class="btn raise big" id="goOnline">JUGAR ONLINE<small>Mesas de hasta 5 personas</small></button>
         </div>
-        <div class="row two"><button class="btn wide" id="goAvatar">PERSONALIZAR MI AVATAR</button><button class="btn raise wide" id="goShop">TIENDA</button></div>
+        <button class="btn wide" id="goAvatar">PERSONALIZAR MI AVATAR</button>
         <div class="wallet" id="walletLine"></div>
       </section>
 
@@ -406,18 +418,13 @@ html.inmenu .bottom > *{transition-delay:0s}
         </div>
       </section>
 
-      <section class="scr" id="scrShop" hidden>
-        <div class="scrhead"><button class="btn tiny" id="backShop">◀ VOLVER</button><h3>TIENDA</h3><span class="wallet" id="shopWallet"></span></div>
-        <div class="dimtxt" id="shopNote">Objetos exclusivos para tu avatar. Se ven en las mesas online y luego se eligen en "Personalizar mi avatar".</div>
-        <div class="shop" id="shopGrid"></div>
-      </section>
-
       <section class="scr" id="scrAvatar" hidden>
-        <div class="scrhead"><button class="btn tiny" id="backAvatar">◀ VOLVER</button><h3>TU AVATAR</h3></div>
+        <div class="scrhead"><button class="btn tiny" id="backAvatar">◀ VOLVER</button><h3>TU AVATAR</h3><span class="wallet" id="avWallet"></span></div>
         <div class="cols">
           <div class="col">
             <div class="avbox" id="avBox"></div>
-            <div class="dimtxt">Así te verán los demás jugadores en las mesas online. Se guarda en este navegador.</div>
+            <div class="buybar" id="avBuy" hidden></div>
+            <div class="dimtxt">Así te verán los demás jugadores en las mesas online. Las opciones con precio se compran con tus fichas.</div>
           </div>
           <div class="col"><div class="avopts" id="avOpts"></div></div>
         </div>
@@ -1213,7 +1220,10 @@ function saveWallet(){
   WALLET = w; try { localStorage.setItem('lpp-wallet', JSON.stringify(w)); } catch(e){}
   showWallet();
 }
-function showWallet(){ const el = $('#walletLine'); if (el) el.innerHTML = `Tus fichas: <b>${fmt(WALLET.chips)}</b> · Deuda: <b class="${WALLET.debt ? 'dn' : ''}">${fmt(WALLET.debt)}</b>`; const s2 = $('#shopWallet'); if (s2) s2.innerHTML = el.innerHTML; }
+function showWallet(){
+  const html = `<span class="wc">FICHAS <b class="money">${fmt(WALLET.chips)}</b></span><span class="wc">DEUDA <b class="debt">${fmt(WALLET.debt)}</b></span>`;
+  ['#walletLine', '#avWallet'].forEach(x => { const e2 = $(x); if (e2) e2.innerHTML = html; });
+}
 function seatMe(p){ p.chips = WALLET.chips; p.debt = WALLET.debt; }
 onPress('#bReload', () => {
   const me = G.players[0];
@@ -1674,7 +1684,7 @@ function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); 
 function setMenu(open){ $('#startOv').hidden = !open; document.documentElement.classList.toggle('inmenu', open); }
 function setManual(v){ G.manual = v; $('#manualT').checked = v; $('#optManual').checked = v; try { localStorage.setItem('mv-manual', v ? '1' : '0'); } catch(e){} if (!v){ G.sel = new Set(); sendSel(); } render(); }
 function setHelp(v){ G.help = v; $('#helpT').checked = v; $('#optHelp').checked = v; try { localStorage.setItem('mv-help', v ? '1' : '0'); } catch(e){} render(); }
-function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline', '#scrAvatar', '#scrShop'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', ['#scrSetup', '#scrAvatar', '#scrShop'].includes(id)); if (id === '#scrAvatar'){ buildAvatarOpts(); startPreview(); } else stopPreview(); if (id === '#scrShop') buildShop(); if (id === '#scrHome') showWallet(); }
+function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline', '#scrAvatar'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', ['#scrSetup', '#scrAvatar'].includes(id)); if (id === '#scrAvatar'){ G.tryOn = null; buildAvatarOpts(); startPreview(); renderBuyBar(); showWallet(); } else stopPreview(); if (id === '#scrHome') showWallet(); }
 function persDesc(){
   const used = [...new Set(G.botPrefs)];
   $('#persDesc').innerHTML = used.map(id => { const p = PERS.find(x => x.id === id); return `<b>${p.name}</b>: ${p.desc}`; }).join('<br>');
@@ -1719,9 +1729,7 @@ function setupMenu(){
   try { const a = JSON.parse(localStorage.getItem('mv-avatar') || 'null'); if (a) G.av = cleanAv(a); } catch(e){}
   buildAvatarOpts();
   $('#goAvatar').onclick = () => { saveName(); showScreen('#scrAvatar'); };
-  $('#backAvatar').onclick = () => showScreen('#scrHome');
-  $('#goShop').onclick = () => { saveName(); showScreen('#scrShop'); };
-  $('#backShop').onclick = () => showScreen('#scrHome');
+  $('#backAvatar').onclick = () => { G.tryOn = null; renderBuyBar(); showScreen('#scrHome'); };
   showWallet();
   let target = 'solo';
   $('#goSolo').onclick = () => { saveName(); target = 'solo'; $('#setupTitle').textContent = 'PARTIDA SOLO'; $('#botCfg').hidden = false; $('#bStart').textContent = 'EMPEZAR PARTIDA'; showScreen('#scrSetup'); };
@@ -2414,7 +2422,7 @@ function startPreview(){
     if (pv.fig){ pv.fig.rotation.y = Math.sin(t * 0.6) * 0.7; animatePerson(pv.fig, t, {}); } pv.r.render(pv.sc, pv.cam); };
   loop();
 }
-function rebuildPreview(){ if (!pv) return; if (pv.fig) pv.sc.remove(pv.fig); pv.fig = makePerson(lookFromAv(G.av), false); pv.sc.add(pv.fig); }
+function rebuildPreview(){ if (!pv) return; if (pv.fig) pv.sc.remove(pv.fig); pv.fig = makePerson(lookFromAv(G.tryOn ? {...G.av, [G.tryOn.k]:G.tryOn.i} : G.av), false); pv.sc.add(pv.fig); }
 function stopPreview(){ if (!pv) return; cancelAnimationFrame(pv.raf); try { pv.r.dispose(); pv.r.forceContextLoss(); } catch(e){} pv = null; $('#avBox').innerHTML = ''; }
 function saveAv(){ try { localStorage.setItem('mv-avatar', JSON.stringify(G.av)); } catch(e){} }
 function buildShop(){
@@ -2427,33 +2435,53 @@ function buildShop(){
       <button class="btn tiny${own ? '' : ' raise'}" data-buy="${it.id}" ${own || !can ? 'disabled' : ''}>${own ? 'COMPRADO' : inDebt ? 'CON DEUDA NO' : WALLET.chips < it.price ? 'SIN FICHAS' : 'COMPRAR'}</button></div>`;
   }).join('');
 }
+function renderBuyBar(){
+  const bar = $('#avBuy'); const t = G.tryOn;
+  if (!t){ bar.hidden = true; return; }
+  const it = shopItem(t.k, t.i);
+  const why = WALLET.debt > 0 ? `Con deuda (${fmt(WALLET.debt)}) no puedes comprar.` : WALLET.chips < it.price ? `No tienes fichas suficientes: te faltan ${fmt(it.price - WALLET.chips)}.` : '';
+  bar.innerHTML = `<span>Probándote <b>${it.name}</b> · <b class="pr">${fmt(it.price)}</b></span>
+    ${why ? `<span class="no">${why}</span>` : `<button class="btn tiny raise" data-buy="${it.id}">COMPRAR POR ${fmt(it.price)}</button>`}
+    <button class="btn tiny" id="bTryOff">QUITAR</button>`;
+  bar.hidden = false;
+  $('#bTryOff').onclick = () => { G.tryOn = null; syncAvatarOpts(); rebuildPreview(); renderBuyBar(); };
+}
 function buy(id){
   const it = SHOP.find(x => x.id === id); if (!it || OWNED.has(id) || WALLET.debt > 0 || WALLET.chips < it.price) return;
   WALLET.chips -= it.price; OWNED.add(id);
   try { localStorage.setItem('lpp-wallet', JSON.stringify(WALLET)); localStorage.setItem('lpp-owned', JSON.stringify([...OWNED])); } catch(e){}
   if (G.mode === 'solo' && G.players[0]) G.players[0].chips = WALLET.chips;
   G.av[it.k] = it.i; G.av = ownAv(G.av); saveAv();                        // wear it straight away
+  G.tryOn = null;
   sfx.register && sfx.register();
-  buildShop();
+  showWallet(); buildAvatarOpts(); rebuildPreview(); renderBuyBar();
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (b && !b.disabled) buy(b.dataset.buy); });
 function buildAvatarOpts(){
   const hex = c => '#' + c.toString(16).padStart(6, '0');
-  const sel = (k, label) => `<span class="bl">${label}</span><select data-k="${k}" aria-label="${label}">${AV[k].map((o, i) => locked(k, i) ? '' : `<option value="${i}">${o[1]}${shopItem(k, i) ? ' ★' : ''}</option>`).join('')}</select>`;
-  const sws = (k, label) => `<span class="bl">${label}</span><div class="sws" role="group" aria-label="${label}">${AV[k].map((c, i) => locked(k, i) ? '' : `<button class="sw${shopItem(k, i) ? ' vip' : ''}" data-k="${k}" data-i="${i}" style="background:${hex(c)}" aria-label="${label} ${i + 1}"></button>`).join('')}</div>`;
+  const tag = (k, i) => locked(k, i) ? ` — ${fmt(shopItem(k, i).price)}` : shopItem(k, i) ? ' ★' : '';
+  const sel = (k, label) => `<span class="bl">${label}</span><select data-k="${k}" aria-label="${label}">${AV[k].map((o, i) => `<option value="${i}">${o[1]}${tag(k, i)}</option>`).join('')}</select>`;
+  const sws = (k, label) => `<span class="bl">${label}</span><div class="sws" role="group" aria-label="${label}">${AV[k].map((c, i) => { const it = shopItem(k, i), lk = locked(k, i);
+    return `<button class="sw${it ? ' vip' : ''}${lk ? ' lockd' : ''}" data-k="${k}" data-i="${i}" ${lk ? `data-price="$${it.price}"` : ''} style="background:${hex(c)}" aria-label="${label} ${it ? it.name : i + 1}${lk ? ', ' + fmt(it.price) : ''}" title="${it ? it.name + (lk ? ' · ' + fmt(it.price) : ' ★') : ''}"></button>`; }).join('')}</div>`;
   G.av = ownAv(G.av);
   $('#avOpts').innerHTML = sel('h', 'Pelo') + sws('hc', 'Color de pelo') + sws('sk', 'Piel') + sel('tp', 'Ropa') + sws('sh', 'Color de la ropa') + sel('hat', 'Sombrero') + `<span class="bl hatc">Color del sombrero</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Gafas') + sel('acc', 'Accesorio') + sel('fh', 'Cara');
   const hcGroup = $('#avOpts [data-k="hatc"]').parentElement; hcGroup.classList.add('hatc'); hcGroup.setAttribute('aria-label', 'Color del sombrero');
   document.querySelectorAll('#avOpts [data-k="hatc"]').forEach((el, i) => el.setAttribute('aria-label', 'Color del sombrero ' + (i + 1)));
   syncAvatarOpts();
   if (buildAvatarOpts.done) return; buildAvatarOpts.done = true;
-  $('#avOpts').addEventListener('change', e => { const k = e.target.dataset.k; if (!k) return; G.av[k] = +e.target.value; G.av = ownAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
-  $('#avOpts').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; G.av[b.dataset.k] = +b.dataset.i; G.av = ownAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
+  const pick = (k, i) => {
+    if (locked(k, i)){ G.tryOn = {k, i}; }
+    else { G.tryOn = null; G.av[k] = i; G.av = ownAv(G.av); saveAv(); }
+    syncAvatarOpts(); rebuildPreview(); renderBuyBar();
+  };
+  $('#avOpts').addEventListener('change', e => { const k = e.target.dataset.k; if (k) pick(k, +e.target.value); });
+  $('#avOpts').addEventListener('click', e => { const b = e.target.closest('.sw'); if (b) pick(b.dataset.k, +b.dataset.i); });
 }
 function syncAvatarOpts(){
-  document.querySelectorAll('#avOpts select').forEach(el => el.value = G.av[el.dataset.k]);
-  document.querySelectorAll('#avOpts .sw').forEach(el => el.setAttribute('aria-pressed', String(G.av[el.dataset.k] === +el.dataset.i)));
-  const hatOn = G.av.hat > 0 || AV.acc[G.av.acc][0] === 'scarf';
+  const cur = k => G.tryOn && G.tryOn.k === k ? G.tryOn.i : G.av[k];
+  document.querySelectorAll('#avOpts select').forEach(el => el.value = cur(el.dataset.k));
+  document.querySelectorAll('#avOpts .sw').forEach(el => el.setAttribute('aria-pressed', String(cur(el.dataset.k) === +el.dataset.i)));
+  const hatOn = cur('hat') > 0 || AV.acc[cur('acc')][0] === 'scarf';
   document.querySelectorAll('#avOpts .hatc').forEach(el => el.style.visibility = hatOn ? 'visible' : 'hidden');
 }
 
