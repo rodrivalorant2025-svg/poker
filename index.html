@@ -396,6 +396,7 @@ html.inmenu .bottom > *{transition-delay:0s}
 
       <section class="scr" id="scrOnline" hidden>
         <div class="scrhead"><button class="btn tiny" id="backOnline">◀ VOLVER</button><h3>JUGAR ONLINE</h3></div>
+        <label class="fld" for="nameIn2">TU NOMBRE EN LA MESA<input id="nameIn2" maxlength="14" autocomplete="off" placeholder="Jugador"></label>
         <div id="onlineBox" hidden>
           <div class="block">
             <div class="sect">CREAR UNA MESA</div>
@@ -532,7 +533,8 @@ function makePeerRoom(){
         return mkRoom(name, peer, true, null);
       }
       const peer = await openPeer(null);
-      const conn = await new Promise((res, rej) => {
+      const conn = await new Promise((resolve, reject) => {
+        const res = v => resolve(v), rej = e => { try { peer.destroy(); } catch(err){} reject(e); };   // a failed attempt leaves no ghost connection
         const c = peer.connect(PREFIX + name, {reliable:true});
         const t = setTimeout(() => rej({code:'sin-conexion'}), 25000);
         c.on('open', () => { clearTimeout(t); res(c); });
@@ -994,6 +996,7 @@ function endHand(){
   showResult();
   G.players.forEach(p => { p.needs = false; });
   celebrate();
+  if (G.mode === 'host'){ G.running = false; hostSeatSync(); }   // people who arrived during the hand get their seat now
   if (G.mode === 'host' && G.players.some(p => p.kind === 'remote')){ clearTimeout(G.autoT); G.autoT = setTimeout(() => { if (G.handOver && !G.running) startHand(); }, 9000); }
   render();
 }
@@ -1300,7 +1303,7 @@ function broadcast(){ if (bcQueued || !NET.table) return; bcQueued = true; queue
 const KIND = {me:'h', remote:'r', bot:'b', empty:'e'};
 function sendState(){
   const S = {h:G.hand, st:G.street, d:G.dealer, tu:G.turn, ai:G.actId, mb:G.maxBet, mr:G.minRaise, ho:G.handOver ? 1 : 0, wp:G.waitPlayers ? 1 : 0, sb:G.sbI, bb:G.bbI, bd:codes(G.board),
-    P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:(p.kind === 'me' ? NET.myPeer : p.peer) || '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
+    P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:(p.kind === 'me' ? NET.myPeer : p.peer) || '', pb:p.kind === 'remote' ? String(p.pub || '').slice(-16) : '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
       c:p.chips, s0:p.s0 || 0, b:p.bet, t:p.total, f:p.folded ? 1 : 0, a:p.allIn ? 1 : 0, o:p.out ? 1 : 0, l:p.last, cr:p.canReraise ? 1 : 0, w:p.win ? 1 : 0,
       hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
   if (G.result) S.rs = {f:G.result.byFold ? 1 : 0, w:G.result.winners.map(w => [G.players.indexOf(w.p), w.amt]),
@@ -1320,7 +1323,12 @@ function hostSeatSync(){
   if (!G.running) G.players.slice().forEach(p => { if (p.left) vacate(p); });
   for (const pe of NET.table.peers()){
     if (pe.sameTab || pe.kind !== 'viewer' || pe.presence.role !== 'player') continue;
-    const have = G.players.find(q => q.peer === pe.peer);
+    const pub = String(pe.presence.pub || '');
+    let have = G.players.find(q => q.peer === pe.peer);
+    if (!have){
+      const same = G.players.find(q => q.kind === 'remote' && (pub ? q.pub === pub : q.name === cleanName(pe.presence.name)));
+      if (same){ same.peer = pe.peer; same.left = false; have = same; }   // the same player reconnected or joined twice: keep one seat
+    }
     if (have){
       if (pe.presence.pub && !have.pub) have.pub = String(pe.presence.pub);
       if (pe.presence.av){ const av = cleanAv(pe.presence.av), sig = JSON.stringify(av); if (sig !== have.avSig){ have.av = av; have.avSig = sig; have.look = lookFromAv(av); } }
@@ -1416,7 +1424,8 @@ function hostGone(text){
 }
 async function applyState(S){
   if (!S || !Array.isArray(S.P) || S.P.length !== N) return;
-  const mySeat = S.P.findIndex(q => q.pe && q.pe === NET.myPeer);
+  const myTag = myPub ? myPub.slice(-16) : '';
+  const mySeat = S.P.findIndex(q => (q.pe && q.pe === NET.myPeer) || (myTag && q.pb === myTag));
   if (mySeat >= 0){
     const e = String(S.P[mySeat].e || '');
     if (e && e !== NET.myHoleE){
@@ -1494,10 +1503,16 @@ function renderTables(peers){
     row.append(nm, ct, b); box.appendChild(row);
   }
 }
+let connecting = false;
 async function startOnline(fn){
+  if (connecting || NET.table) return;
+  connecting = true;
+  const btns = ['#bJoinCode', '#bStart'].map(x => $(x)), labels = btns.map(b => b.textContent);
+  btns.forEach(b => { b.disabled = true; b.textContent = 'CONECTANDO…'; });
   $('#netErr').hidden = true;
   try { saveName(); await fn(); setMenu(false); }
   catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'No hay ninguna mesa abierta con ese código. Quien la creó tiene que seguir con la página del juego abierta: si la cierra, la recarga o abre el enlace en esa misma pestaña, la mesa desaparece y hay que crear otra.' : e && e.code === 'sin-conexion' ? 'La mesa existe, pero no se pudo conectar con ella. Suele pasar con cortafuegos estrictos (wifi del trabajo o del instituto, algunas redes móviles). Prueba con otra red o vuelve a intentarlo.' : e && ['servidor','network','server-error','socket-error','socket-closed'].includes(e.code) ? 'No se pudo contactar con el servidor de mesas. Revisa tu conexión a internet e inténtalo de nuevo.' : e && e.code === 'unavailable-id' ? 'Ese código ya está en uso. Vuelve a intentarlo.' : 'No se pudo conectar (' + (e && e.code || 'error') + '). Inténtalo de nuevo.'; $('#netErr').hidden = false; }
+  finally { connecting = false; btns.forEach((b, k) => { b.disabled = false; b.textContent = labels[k]; }); }
 }
 function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); } catch(e){} }
 function setMenu(open){ $('#startOv').hidden = !open; document.documentElement.classList.toggle('inmenu', open); }
@@ -1522,6 +1537,9 @@ function freshBots(){ for (let i=1;i<N;i++) G.players[i] = null; for (let i=1;i<
 function setupMenu(){
   try { $('#nameIn').value = localStorage.getItem('mv-name') || ''; } catch(e){}
   $('#nameIn').addEventListener('input', saveName);
+  $('#nameIn2').value = $('#nameIn').value;
+  $('#nameIn').addEventListener('input', () => { $('#nameIn2').value = $('#nameIn').value; });
+  $('#nameIn2').addEventListener('input', () => { $('#nameIn').value = $('#nameIn2').value; saveName(); });
   $('#nameIn').addEventListener('change', saveName);
   try { G.help = localStorage.getItem('mv-help') !== '0'; G.manual = localStorage.getItem('mv-manual') !== '0'; } catch(e){}
   try { const b = JSON.parse(localStorage.getItem('mv-bots') || 'null'); if (Array.isArray(b) && b.length === 4 && b.every(x => PERS.some(p => p.id === x))) G.botPrefs = b; } catch(e){}
@@ -2241,8 +2259,8 @@ function sendChat(){
   const nowT = Date.now(); if (nowT - CHAT.last < 1500) return;   // no spamming
   CHAT.last = nowT; CHAT.n++;
   NET.table.presence({say:{n:CHAT.n, t}}).catch(() => {});
-  bubble(0, t);
-  $('#chatIn').value = ''; $('#chatCnt').textContent = '0/20';
+  $('#chatIn').value = ''; $('#chatCnt').textContent = 'Enviado';
+  setTimeout(() => { if (!$('#chatIn').value) $('#chatCnt').textContent = '0/20'; }, 1500);
 }
 $('#bSay').onclick = sendChat;
 $('#chatIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); sendChat(); } });
