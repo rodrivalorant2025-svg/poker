@@ -1607,7 +1607,8 @@ async function hostCreate(name, fill){
   NET.table.presence({role:'host', pub:myPub}).catch(() => {});
   const link = location.origin + location.pathname + '?mesa=' + encodeURIComponent(NET.code);
   $('#tableInfo').innerHTML = `Mesa <b>${esc(NET.tableName)}</b> · código <b>${esc(NET.code)}</b><br><button class="btn tiny" id="bCopy">COPIAR ENLACE DE INVITACIÓN</button><br><span class="dimtxt">Mantén esta página abierta: si la cierras o la recargas, la mesa se cierra.</span>`;
-  $('#bCopy').onclick = () => { navigator.clipboard.writeText(link).then(() => { $('#bCopy').textContent = '¡ENLACE COPIADO!'; }, () => { prompt('Copia este enlace:', link); }); };
+  const showLink = () => { const t = $('#tableInfo'); if (t.querySelector('.linkbox')) return; const box = document.createElement('input'); box.className = 'linkbox'; box.readOnly = true; box.value = link; box.setAttribute('aria-label', 'Enlace de invitación'); box.style.cssText = 'width:100%;margin-top:4px;font:600 11px var(--f-ui);background:rgba(0,0,0,.4);color:var(--txt);border:1px solid rgba(217,180,90,.45);border-radius:5px;padding:3px 5px'; t.appendChild(box); box.focus(); box.select(); };
+  $('#bCopy').onclick = () => { try { navigator.clipboard.writeText(link).then(() => { $('#bCopy').textContent = '¡ENLACE COPIADO!'; }, () => { $('#bCopy').textContent = 'CÓPIALO AQUÍ ABAJO:'; showLink(); }); } catch(e){ $('#bCopy').textContent = 'CÓPIALO AQUÍ ABAJO:'; showLink(); } };
   $('#tableInfo').hidden = false;
   lobbyAnnounce();
   render();
@@ -1761,7 +1762,18 @@ function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); 
 function setMenu(open){ $('#startOv').hidden = !open; document.documentElement.classList.toggle('inmenu', open); }
 function setManual(v){ G.manual = v; $('#manualT').checked = v; $('#optManual').checked = v; try { localStorage.setItem('mv-manual', v ? '1' : '0'); } catch(e){} if (!v){ G.sel = new Set(); sendSel(); } render(); }
 function setHelp(v){ G.help = v; $('#helpT').checked = v; $('#optHelp').checked = v; try { localStorage.setItem('mv-help', v ? '1' : '0'); } catch(e){} render(); }
-function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline', '#scrAvatar'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', ['#scrSetup', '#scrAvatar'].includes(id)); if (id === '#scrAvatar'){ G.tryOn = null; buildAvatarOpts(); startPreview(); renderBuyBar(); showWallet(); } else stopPreview(); if (id === '#scrHome') showWallet(); }
+// shrink the menu (logo + panel) when the window is too short, e.g. a small embedded iframe
+function fitMenu(){
+  const ov = $('#startOv'); if (!ov || ov.hidden) return;
+  const els = [ov.querySelector('.logo'), ov.querySelector('.startbox')];
+  els.forEach(e => e.style.zoom = '');
+  const gap = 12, need = els.reduce((h, e) => h + e.getBoundingClientRect().height, 0) + gap + 16;
+  const z = Math.max(0.55, Math.min(1, innerHeight / need));
+  if (z < 0.999) els.forEach(e => e.style.zoom = z.toFixed(3));
+}
+addEventListener('resize', fitMenu);
+try { new ResizeObserver(() => requestAnimationFrame(fitMenu)).observe(document.querySelector('#startOv .startbox .in') || document.body); } catch(e){}
+function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline', '#scrAvatar'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', ['#scrSetup', '#scrAvatar'].includes(id)); if (id === '#scrAvatar'){ G.tryOn = null; buildAvatarOpts(); startPreview(); renderBuyBar(); showWallet(); } else stopPreview(); if (id === '#scrHome') showWallet(); fitMenu(); }
 function persDesc(){
   const used = [...new Set(G.botPrefs)];
   $('#persDesc').innerHTML = used.map(id => { const p = PERS.find(x => x.id === id); return `<b>${p.name}</b>: ${p.desc}`; }).join('<br>');
