@@ -386,6 +386,7 @@ html.inmenu .bottom > *{transition-delay:0s}
     <label for="manualT"><input type="checkbox" id="manualT" checked> ELEGIR CARTAS A MANO</label>
     <label for="soundT"><input type="checkbox" id="soundT" checked> SONIDO</label>
     <label for="hideT" id="hideL"><input type="checkbox" id="hideT" checked> TAPAR MIS CARTAS</label>
+    <label for="talkT"><input type="checkbox" id="talkT" checked> MENSAJES DE LOS BOTS</label>
     <div class="row">
       <label for="fast" id="fastL"><input type="checkbox" id="fast"> BOTS RÁPIDOS</label>
       <button class="btn tiny" id="bHelp">¿CÓMO SE JUEGA?</button>
@@ -419,7 +420,7 @@ html.inmenu .bottom > *{transition-delay:0s}
             <div class="sect">OPCIONES</div>
             <label class="opt" for="optManual"><input type="checkbox" id="optManual"><span><b>Elegir mis cartas a mano</b><small>Tocas las 5 cartas de tu jugada. Desactivado, el juego usa siempre tu mejor jugada.</small></span></label>
             <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Ayuda de jugada</b><small>Muestra la jugada recomendada y tu probabilidad de ganar.</small></span></label>
-            <div class="optrow"><label class="chk" for="optSound"><input type="checkbox" id="optSound"> <b>Sonido</b></label><label class="chk" for="optAmb"><input type="checkbox" id="optAmb"> <b>Ambiente del casino</b></label><label class="chk" for="optHide" title="Solo en partidas online: tus 2 cartas boca abajo hasta que pases el ratón por encima"><input type="checkbox" id="optHide"> <b>Tapar mis cartas (online)</b></label></div>
+            <div class="optrow"><label class="chk" for="optSound"><input type="checkbox" id="optSound"> <b>Sonido</b></label><label class="chk" for="optAmb"><input type="checkbox" id="optAmb"> <b>Ambiente del casino</b></label><label class="chk" for="optTalk"><input type="checkbox" id="optTalk"> <b>Mensajes de los bots</b></label><label class="chk" for="optHide" title="Solo en partidas online: tus 2 cartas boca abajo hasta que pases el ratón por encima"><input type="checkbox" id="optHide"> <b>Tapar mis cartas (online)</b></label></div>
             <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
           </div>
         </div>
@@ -853,7 +854,7 @@ async function startHand(){
   G.myStart = G.players[0].chips; G.result = null; $('#result').hidden = true;
   G.hand++; G.sel = new Set(); G.seenHud = new Set(); G.street = 'preflop'; G.board = []; G.deck = newDeck(); G.handOver = false; G.banner = ''; G.hi = new Set(); G.hintEq = null; G.muck = [];
   clearCards();
-  G.players.forEach(p => Object.assign(p, {pfr:false, trap:false, bluffing:false, repaid:0, hole:[], bet:0, total:0, folded:false, allIn:false, needs:false, canReraise:true, last:'', shown:false, win:false, enc:'', s0:p.chips, out:p.chips<=0 || p.kind === 'empty'}));
+  G.players.forEach(p => Object.assign(p, {pfr:false, trap:false, bluffing:false, aggrHand:0, betStreets:'', repaid:0, hole:[], bet:0, total:0, folded:false, allIn:false, needs:false, canReraise:true, last:'', shown:false, win:false, enc:'', s0:p.chips, out:p.chips<=0 || p.kind === 'empty'}));
   G.dealer = nextIdx(G.dealer, p => !p.out);
   const active = G.players.filter(p => !p.out).length;
   const sb = active === 2 ? G.dealer : nextIdx(G.dealer, p => !p.out);
@@ -925,11 +926,19 @@ function apply(p, a){
     }
     p.last = p.allIn ? 'All-in ' + fmt(to) : (opening ? 'Bet ' : 'Raise ') + fmt(to);
     st.aggr++; G.lastAggr = p; if (G.street === 'preflop') p.pfr = true;
+    p.aggrHand++; if (!p.betStreets.includes(G.street[0])) p.betStreets += G.street[0];
   } else {
     const x = move(p, toCall);
     p.last = toCall === 0 ? 'Check' : (p.allIn ? 'All-in ' + fmt(p.bet) : 'Call ' + fmt(x));
   }
   p.needs = false; p.canReraise = false;
+  if (p.kind === 'bot'){
+    const potNow = potTotal();
+    if (p.last.startsWith('All-in')) botSay(p, 'allin', 0.5);
+    else if (a.t === 'raise' && G.maxBet > BB * 3) botSay(p, 'raise', 0.18);
+    else if (a.t === 'fold' && toCall > potNow * 0.3) botSay(p, 'fold', 0.3);
+    else if (a.t === 'call' && toCall > potNow * 0.35 && G.street !== 'preflop') botSay(p, 'call', 0.25);
+  }
 }
 async function dealStreet(){
   G.deck.pop();
@@ -981,6 +990,12 @@ function showdown(){
     p.picked = !!pick; p.best = pick ? evalPick(pick) : p.autoBest;
   });
   toast('SHOWDOWN', EXP.showdown, 'street', 3000);
+  for (const q of cont){
+    if (!q.aggrHand || !q.autoBest) continue;
+    const st = q.st || (q.st = {faced:0, folded:0, acts:0, aggr:0});
+    if (q.autoBest.cat <= 1 && q.betStreets.length >= 1) st.caught = (st.caught || 0) + 1;   // bet big with nothing
+    else if (q.autoBest.cat >= 3) st.strong = (st.strong || 0) + 1;                            // bet and had it
+  }
   const levels = [...new Set(cont.map(p => p.total))].sort((a,b) => a-b);
   let prev = 0; const pots = [];
   for (const L of levels){
@@ -1085,9 +1100,18 @@ function repayDebts(){
 }
 function endHand(){
   G.handOver = true; G.turn = -1;
+  for (const q of G.players){
+    if (q.kind !== 'bot' || !q.s0) continue;
+    const lost = (q.s0 - q.chips) / q.s0;
+    q.tilt = Math.max(0, Math.min(1, (q.tilt || 0) * 0.75 + (lost > 0.3 ? 0.5 : 0)));
+  }
   if (G.mode !== 'client') repayDebts();
   saveWallet();
   showResult();
+  if (G.result && G.mode !== 'client'){
+    for (const w of G.result.winners) if (w.p.kind === 'bot') botSay(w.p, G.result.byFold && w.p.bluffing && Math.random() < 0.5 ? 'bluffwin' : 'win', w.amt > BB * 10 ? 0.45 : 0.15);
+    for (const q of G.players) if (q.kind === 'bot' && !q.win && q.s0 && (q.s0 - q.chips) / q.s0 > 0.25) botSay(q, 'lose', 0.5);
+  }
   G.players.forEach(p => { p.needs = false; });
   celebrate();
   if (G.mode === 'host'){ G.running = false; hostSeatSync(); }   // people who arrived during the hand get their seat now
@@ -1100,9 +1124,16 @@ function endHand(){
 const foldRate = o => (((o.st && o.st.folded) || 0) + 1.4) / (((o.st && o.st.faced) || 0) + 4);
 const aggrRate = o => (((o.st && o.st.aggr) || 0) + 1) / (((o.st && o.st.acts) || 0) + 4);
 async function botMove(p){
-  await sleep(650 + Math.random()*800);
+  const a = botDecide(p);
+  const big = a.t === 'raise' || (G.maxBet - p.bet) > p.chips * 0.25;
+  await sleep(450 + Math.random() * 500 + (big ? 500 + Math.random() * 900 : 0) + (G.street === 'river' ? 300 : 0));
+  return a;
+}
+function botDecide(p){
   const opps = G.players.filter(o => o !== p && inHand(o));
   const nOpp = opps.length;
+  const tilt = p.tilt || 0;   // after a big loss: looser and more aggressive for a while
+  const T = {tight:Math.max(0, p.tight - tilt * 0.3), aggr:Math.min(1, p.aggr + tilt * 0.25), bluff:p.bluff + tilt * 0.06};
   const eq = equity(p.hole, G.board, nOpp, G.board.length ? 700 : 450);
   const rel = eq * (nOpp + 1);                 // 1 = an average hand at this table
   const pot = potTotal();
@@ -1127,25 +1158,25 @@ async function botMove(p){
     let to = Math.round((G.maxBet + Math.max(G.minRaise, size)) / 10) * 10;
     to = Math.max(to, G.maxBet + G.minRaise);
     const stack = p.bet + p.chips;
-    if (rel > 2.6 && Math.random() < p.aggr * 0.25) to = stack;                    // occasional shove with a monster
+    if (rel > 2.6 && Math.random() < T.aggr * 0.25) to = stack;                    // occasional shove with a monster
     if (to > stack * 0.7 && (rel > 1.6 || kind === 'bluff' && headsUp && Math.random() < 0.3)) to = stack;  // commit instead of a weird almost-all-in
-    if (kind === 'bluff' || kind === 'bluffraise' || kind === 'semi' || kind === 'barrel') p.bluffing = true;
+    if (kind === 'bluff' || kind === 'bluffraise' || kind === 'semi' || kind === 'barrel') T.bluffing = true;
     return {t:'raise', to:Math.min(to, stack)};
   };
 
   if (toCall === 0){
     if (!canRaise) return {t:'call'};
     // slow play: check a monster on the flop or turn to trap, then raise when someone bets
-    if (post && st !== 'river' && rel > 2.4 && r < 0.2 + (1 - p.aggr) * 0.3){ p.trap = true; return {t:'call'}; }
-    if (rel > 1.35 - p.aggr * 0.35 && r < 0.5 + p.aggr * 0.4) return raise('value');
+    if (post && st !== 'river' && rel > 2.4 && r < 0.2 + (1 - T.aggr) * 0.3){ p.trap = true; return {t:'call'}; }
+    if (rel > 1.35 - T.aggr * 0.35 && r < 0.5 + T.aggr * 0.4) return raise('value');
     // continuation bet: the pre-flop raiser keeps the initiative whatever the flop
-    if (st === 'flop' && p.pfr && nOpp <= 2 && r < 0.4 + p.aggr * 0.35) return raise('cbet');
+    if (st === 'flop' && p.pfr && nOpp <= 2 && r < 0.4 + T.aggr * 0.35) return raise('cbet');
     // keep the story going after an earlier bluff (second / third barrel)
-    if (post && p.bluffing && r < 0.3 + p.aggr * 0.3) return raise('barrel');
+    if (post && T.bluffing && r < 0.3 + T.aggr * 0.3) return raise('barrel');
     // semi-bluff: nothing made yet but a real chance to improve
-    if (post && st !== 'river' && made <= 1 && rel > 0.85 && r < 0.15 + p.aggr * 0.35) return raise('semi');
+    if (post && st !== 'river' && made <= 1 && rel > 0.85 && r < 0.15 + T.aggr * 0.35) return raise('semi');
     // pure bluff: few opponents who fold a lot, more often on the river
-    const bluffP = p.bluff * (headsUp ? 3 : nOpp === 2 ? 1.6 : 0.5) * (0.5 + foldy * 1.6) * (st === 'river' ? 1.5 : 1);
+    const bluffP = T.bluff * (headsUp ? 3 : nOpp === 2 ? 1.6 : 0.5) * (0.5 + foldy * 1.6) * (st === 'river' ? 1.5 : 1);
     if (post && rel < 0.8 && r < bluffP) return raise('bluff');
     return {t:'call'};
   }
@@ -1154,15 +1185,40 @@ async function botMove(p){
   // against someone who bets all the time, call lighter (they bluff more); against a rock, give up sooner
   const bettor = G.lastAggr && G.lastAggr !== p ? G.lastAggr : null;
   const lighten = bettor ? Math.max(0.65, Math.min(1.25, 1 - (aggrRate(bettor) - 0.3))) : 1;
+  // hand reading: equity was measured against random cards, but someone who bets big rarely holds random cards.
+  // The bigger the bet and the more streets they have fired, the stronger their range looks — unless they have
+  // been caught bluffing before. This is what lets a well-told bluff work.
+  const bst = (bettor && bettor.st) || {};
+  const credibility = Math.max(0.25, Math.min(1.4, 1 + ((bst.strong || 0) - (bst.caught || 0) * 1.5) * 0.12 - (aggrRate(bettor || p) - 0.3)));
+  const betSize = toCall / Math.max(BB, pot - toCall);                     // bet as a fraction of the pot before it
+  const barrels = bettor ? bettor.betStreets.length : 0;
+  let pressure = post ? (Math.min(betSize, 2) * 0.27 + Math.max(0, barrels - 1) * 0.09 + (st === 'river' ? 0.07 : 0)) * credibility : 0;
+  // with more players still to act behind, a medium hand is in even more danger
+  if (post) pressure += Math.max(0, G.players.filter(o => o !== p && o !== bettor && canAct(o) && o.needs).length) * 0.03;
+  // a scary board (flush or straight possible) makes it worse, if the bot isn't the one holding it
+  if (post && made < 4){
+    const suits = [0, 0, 0, 0]; G.board.forEach(c => suits[c.s]++);
+    const rs = [...new Set(G.board.map(c => c.r))].sort((a, b) => a - b);
+    let run = 1, bestRun = 1; for (let k = 1; k < rs.length; k++){ run = rs[k] - rs[k-1] === 1 ? run + 1 : 1; bestRun = Math.max(bestRun, run); }
+    if (Math.max(...suits) >= 3) pressure += 0.06;
+    if (bestRun >= 3) pressure += 0.04;
+  }
+  // a monster never folds to pressure; a calling station barely notices it; tilt makes everyone stubborn
+  const stubborn = Math.min(0.9, (1 - T.tight) * 0.25 + (p.tilt || 0) * 0.4 + (made >= 3 ? 0.7 : made === 2 ? 0.3 : 0));
+  pressure = Math.max(0, Math.min(0.6, pressure * (1 - stubborn)));
+  const eqRead = eq * (1 - pressure);
+  const committed = p.total / Math.max(1, p.total + p.chips) > 0.45;   // already half in: don't give it up cheaply
   if (p.trap && canRaise && rel > 1.8 && r < 0.75){ p.trap = false; return raise('value'); }     // check-raise
-  if (canRaise && rel > 1.9 - p.aggr * 0.5 && r < 0.3 + p.aggr * 0.5) return raise('value');
+  if (canRaise && rel > 1.9 - T.aggr * 0.5 && r < 0.3 + T.aggr * 0.5) return raise('value');
   // bluff-raise: one opponent, smallish bet, a bot with nerve
-  if (canRaise && post && headsUp && rel < 0.7 && toCall < pot * 0.6 && r < p.bluff * 1.6 * (0.5 + foldy)) return raise('bluffraise');
-  if (canRaise && (st === 'flop' || st === 'turn') && made <= 1 && rel > 0.95 && r < p.aggr * 0.22) return raise('semi');
-  const need = potOdds * (0.85 + p.tight * 0.5) * lighten;
+  if (canRaise && post && headsUp && rel < 0.7 && toCall < pot * 0.6 && r < T.bluff * 1.6 * (0.5 + foldy)) return raise('bluffraise');
+  if (canRaise && (st === 'flop' || st === 'turn') && made <= 1 && rel > 0.95 && r < T.aggr * 0.22) return raise('semi');
+  const need = potOdds * (0.85 + T.tight * 0.5) * lighten * (committed ? 0.7 : 1);
   const cheap = toCall <= p.chips * 0.04 && rel > 0.75;
-  if (eq < need && !cheap) return {t:'fold'};
-  if (!post && toCall > BB && rel < 0.75 + p.tight * 0.45 && r > p.bluff) return {t:'fold'};
+  // big decisions for its whole stack: only with real confidence
+  if (toCall > p.chips * 0.5 && made < 2 && eqRead < 0.5 && !committed && Math.random() > (p.tilt || 0) * 0.5) return {t:'fold'};
+  if (eqRead < need && !cheap) return {t:'fold'};
+  if (!post && toCall > BB && rel < 0.75 + T.tight * 0.45 && r > T.bluff) return {t:'fold'};
   return {t:'call'};
 }
 
@@ -1459,7 +1515,7 @@ function sendState(){
   const S = {v:PROTO, h:G.hand, st:G.street, d:G.dealer, tu:G.turn, ai:G.actId, mb:G.maxBet, mr:G.minRaise, ho:G.handOver ? 1 : 0, wp:G.waitPlayers ? 1 : 0, sb:G.sbI, bb:G.bbI, bd:codes(G.board),
     P:G.players.map(p => ({k:KIND[p.kind], n:p.kind === 'bot' ? '' : p.name, pe:(p.kind === 'me' ? NET.myPeer : p.peer) || '', pb:p.kind === 'remote' ? String(p.pub || '').slice(-16) : '', lk:p.kind === 'bot' ? POOL.findIndex(b => b.name === p.name) : -1,
       c:p.chips, s0:p.s0 || 0, b:p.bet, t:p.total, f:p.folded ? 1 : 0, a:p.allIn ? 1 : 0, o:p.out ? 1 : 0, l:p.last, cr:p.canReraise ? 1 : 0, w:p.win ? 1 : 0,
-      hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, wo:p.walOk ? 1 : 0, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
+      hc:p.hole.length, sh:p.shown ? codes(p.hole) : '', e:p.kind === 'remote' && !p.shown ? p.enc : '', dt:p.debt || 0, rp:p.repaid || 0, bc:p.shown && p.best ? codes(p.best.cards) : '', pk:p.picked ? 1 : 0, wo:p.walOk ? 1 : 0, sy:p.kind === 'bot' && p.say ? p.say : undefined, av:p.kind === 'me' || p.kind === 'remote' ? p.av : undefined}))};
   if (G.result) S.rs = {f:G.result.byFold ? 1 : 0, w:G.result.winners.map(w => [G.players.indexOf(w.p), w.amt]),
     p:(G.result.pots || []).map(pt => [pt.amt, pt.ws.map(w => G.players.indexOf(w))]), r:(G.result.returns || []).map(x => [G.players.indexOf(x.p), x.amt])};
   NET.table.presence({role:'host', pub:myPub, S}).catch(() => {});
@@ -1659,6 +1715,16 @@ async function applyState(S){
   else if (S.st !== prevStreet && EXP[S.st]) toast(S.st.toUpperCase(), EXP[S.st], 'street', 3800);
   render();
   if (G.handOver && !prevHO && G.result){ showResult(); celebrate(); }
+  NET.botSay = NET.botSay || {};
+  S.P.forEach((q, abs) => {
+    if (q.k !== 'b' || !q.sy || typeof q.sy !== 'object') return;
+    const n = +q.sy.n || 0, keyS = abs + ':' + (q.lk || 0);
+    if (NET.botSay[keyS] === undefined){ NET.botSay[keyS] = n; return; }
+    if (n === NET.botSay[keyS]) return;
+    NET.botSay[keyS] = n;
+    const t = cleanMsg(q.sy.t); const v = V(abs);
+    if (G.talk && t && v > 0) bubble(v, t);
+  });
 }
 
 // --- start menu and lobby
@@ -1729,6 +1795,9 @@ function setupMenu(){
   $('#soundT').onchange = e => setSound(e.target.checked);
   $('#hideT').checked = $('#optHide').checked = G.hide;
   $('#hideT').onchange = e => setHide(e.target.checked);
+  $('#talkT').checked = $('#optTalk').checked = G.talk;
+  $('#talkT').onchange = e => setTalk(e.target.checked);
+  $('#optTalk').onchange = e => setTalk(e.target.checked);
   $('#optHide').onchange = e => setHide(e.target.checked);
   const handBox = $('#myCards').closest('.grp');
   handBox.addEventListener('pointerenter', () => { clearTimeout(PEEK.t); PEEK.overHud = true; setPeek(true); });
@@ -1936,15 +2005,17 @@ const GEO = {
   leg: new THREE.CylinderGeometry(0.075, 0.07, 0.95, 6),
   thigh: new THREE.BoxGeometry(0.15, 0.13, 0.45), shin: new THREE.BoxGeometry(0.13, 0.48, 0.13),
   chest: new THREE.CylinderGeometry(0.21, 0.19, 0.62, 7), shoulders: new THREE.SphereGeometry(0.21, 7, 4),
-  neck: new THREE.CylinderGeometry(0.06, 0.07, 0.1, 5), skull: new THREE.SphereGeometry(0.14, 8, 6),
+  neck: new THREE.CylinderGeometry(0.06, 0.07, 0.1, 6), skull: new THREE.SphereGeometry(0.14, 10, 8),
   eye: new THREE.BoxGeometry(0.028, 0.028, 0.01), nose: new THREE.ConeGeometry(0.024, 0.06, 4),
-  cap: new THREE.SphereGeometry(0.15, 8, 4, 0, Math.PI*2, 0, Math.PI*0.52),
-  bun: new THREE.SphereGeometry(0.06, 5, 4), longHair: new THREE.BoxGeometry(0.3, 0.34, 0.1),
+  cap: new THREE.SphereGeometry(0.15, 12, 6, 0, Math.PI*2, 0, Math.PI*0.52),
+  bun: new THREE.SphereGeometry(0.065, 8, 6), longHair: new THREE.CylinderGeometry(0.155, 0.175, 0.36, 12, 1, true, Math.PI * 0.5, Math.PI),
   upper: new THREE.CylinderGeometry(0.06, 0.055, 0.32, 5), fore: new THREE.CylinderGeometry(0.05, 0.045, 0.3, 5), hand: new THREE.BoxGeometry(0.08, 0.08, 0.08),
   seat: new THREE.BoxGeometry(0.52, 0.08, 0.5), back: new THREE.BoxGeometry(0.52, 0.62, 0.08), chairLeg: new THREE.BoxGeometry(0.04, 0.42, 0.04),
 };
+const chromeM = () => matCache.chrome || (matCache.chrome = new THREE.MeshPhongMaterial({color:0xc8c8d0, shininess:80, specular:0xffffff, flatShading:true}));
 function makePerson(look, standing){
   const g = new THREE.Group();
+  const gold = matCache.gold || (matCache.gold = Object.assign(new THREE.MeshPhongMaterial({color:0xe8b830, shininess:90, specular:0xfff0b0, flatShading:true}), {userData:{}}));
   const skin = flat(look.skin), shirt = flat(look.top === 'vest' ? 0xf1ece2 : look.shirt), hairM = flat(look.hairC ?? 0x222222), legM = flat(look.top === 'suit' ? look.shirt : 0x1d1d2a);
   const yB = standing ? 0.95 : 0.52;
   const parts = {};
@@ -1956,18 +2027,26 @@ function makePerson(look, standing){
   const chest = M(GEO.chest, shirt); chest.position.y = 0.33; torso.add(chest);
   const sh = M(GEO.shoulders, shirt); sh.scale.set(1.25, 0.55, 0.85); sh.position.y = 0.62; torso.add(sh);
   // clothing styles for online avatars (bots and the croupier have no look.top)
+  if (!standing && (!look.top || look.top === 'tee' || look.top === 'stripes')){
+    const col = M(new THREE.TorusGeometry(0.075, 0.016, 4, 14), flat(look.top === 'stripes' ? 0xf4f1ea : look.shirt)); col.rotation.x = Math.PI / 2; col.position.y = 0.665; torso.add(col);
+  }
   if (look.top === 'suit'){
+    for (let k = 0; k < 2; k++){ const bt = M(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 6), flat(0x15151a)); bt.rotation.x = Math.PI / 2; bt.position.set(0.035, 0.25 - k * 0.09, 0.2); torso.add(bt); }
+    const sq = M(new THREE.BoxGeometry(0.05, 0.025, 0.01), flat(0xf4f1ea)); sq.position.set(-0.12, 0.5, 0.18); torso.add(sq);
     const front = M(new THREE.BoxGeometry(0.11, 0.4, 0.02), flat(0xf4f1ea)); front.position.set(0, 0.44, 0.185); front.rotation.x = -0.06; torso.add(front);
     const tie = M(new THREE.BoxGeometry(0.045, 0.3, 0.02), flat(0x8a1a22)); tie.position.set(0, 0.46, 0.198); tie.rotation.x = -0.06; torso.add(tie);
     const knot = M(new THREE.BoxGeometry(0.06, 0.045, 0.03), flat(0x8a1a22)); knot.position.set(0, 0.62, 0.19); torso.add(knot);
     for (const sx of [-1, 1]){ const lap = M(new THREE.BoxGeometry(0.035, 0.26, 0.02), flat(look.shirt)); lap.position.set(sx * 0.075, 0.5, 0.2); lap.rotation.z = sx * 0.28; torso.add(lap); }
   } else if (look.top === 'hoodie'){
-    const hood = M(new THREE.SphereGeometry(0.17, 7, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), shirt); hood.position.set(0, 0.66, -0.11); hood.rotation.x = -1.2; hood.scale.set(1.1, 1, 0.9); torso.add(hood);
+    const hood = M(new THREE.SphereGeometry(0.17, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), shirt); hood.position.set(0, 0.66, -0.11); hood.rotation.x = -1.2; hood.scale.set(1.1, 1, 0.9); torso.add(hood);
     const pocket = M(new THREE.BoxGeometry(0.26, 0.11, 0.02), shirt); pocket.position.set(0, 0.16, 0.19); torso.add(pocket);
-    for (const sx of [-1, 1]){ const cord = M(new THREE.BoxGeometry(0.012, 0.13, 0.012), flat(0xf4f1ea)); cord.position.set(sx * 0.04, 0.6, 0.19); torso.add(cord); }
+    for (const sx of [-1, 1]){ const cord = M(new THREE.BoxGeometry(0.012, 0.13, 0.012), flat(0xf4f1ea)); cord.position.set(sx * 0.04, 0.6, 0.19); torso.add(cord); const tip = M(new THREE.BoxGeometry(0.018, 0.025, 0.018), flat(0x888890)); tip.position.set(sx * 0.04, 0.53, 0.19); torso.add(tip); }
+    const band = M(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 7), shirt); band.position.y = 0.03; band.scale.set(1.03, 1, 1.03); torso.add(band);
   } else if (look.top === 'leather'){
     for (const sx of [-1, 1]){ const c = M(new THREE.BoxGeometry(0.1, 0.07, 0.04), shirt); c.position.set(sx * 0.1, 0.66, 0.12); c.rotation.z = sx * 0.4; torso.add(c); }
     const zip = M(new THREE.BoxGeometry(0.012, 0.5, 0.012), flat(0xb8b8c0)); zip.position.set(0, 0.36, 0.195); torso.add(zip);
+    const pull = M(new THREE.BoxGeometry(0.02, 0.035, 0.008), chromeM()); pull.position.set(0, 0.6, 0.205); torso.add(pull);
+    for (const sx of [-1, 1]){ const pk = M(new THREE.BoxGeometry(0.07, 0.01, 0.02), flat(0x0a0a0c)); pk.position.set(sx * 0.1, 0.3, 0.19); torso.add(pk); }
   } else if (look.top === 'stripes'){
     for (let k = 0; k < 4; k++){ const st = M(new THREE.CylinderGeometry(0.212 - k * 0.006, 0.208 - k * 0.006, 0.045, 7), flat(0xf4f1ea)); st.position.y = 0.14 + k * 0.13; torso.add(st); }
   } else if (look.top === 'tux'){
@@ -1986,40 +2065,65 @@ function makePerson(look, standing){
     const bow = M(new THREE.BoxGeometry(0.12, 0.05, 0.03), flat(0xc21f2a)); bow.position.set(0, 0.64, 0.17); torso.add(bow);
   }
   const neck = M(GEO.neck, skin); neck.position.y = 0.72; torso.add(neck);
-  if (look.acc === 'chain'){ const ch = M(new THREE.TorusGeometry(0.11, 0.012, 4, 12), gold); ch.position.set(0, 0.6, 0.06); ch.rotation.x = 1.25; torso.add(ch); const md = M(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 8), gold); md.rotation.x = Math.PI / 2; md.position.set(0, 0.5, 0.18); torso.add(md); }
-  if (look.acc === 'scarf'){ const sc = M(new THREE.TorusGeometry(0.1, 0.035, 5, 10), flat(look.hatC ?? 0xb03030)); sc.rotation.x = Math.PI / 2; sc.position.y = 0.7; torso.add(sc); const tail = M(new THREE.BoxGeometry(0.06, 0.2, 0.03), flat(look.hatC ?? 0xb03030)); tail.position.set(0.06, 0.58, 0.16); torso.add(tail); }
+  if (look.acc === 'chain'){ const ch = M(new THREE.TorusGeometry(0.11, 0.011, 5, 24), gold); ch.position.set(0, 0.6, 0.06); ch.rotation.x = 1.25; torso.add(ch); const md = M(new THREE.CylinderGeometry(0.032, 0.032, 0.01, 12), gold); md.rotation.x = Math.PI / 2; md.position.set(0, 0.5, 0.18); torso.add(md); const gem = M(new THREE.OctahedronGeometry(0.014), flat(0x2a8ad0)); gem.position.set(0, 0.5, 0.188); torso.add(gem); }
+  if (look.acc === 'scarf'){ const scm = flat(look.hatC ?? 0xb03030); const sc = M(new THREE.TorusGeometry(0.1, 0.036, 6, 16), scm); sc.rotation.x = Math.PI / 2; sc.position.y = 0.7; torso.add(sc);
+    const knot = M(new THREE.IcosahedronGeometry(0.035, 0), scm); knot.position.set(0.05, 0.66, 0.15); torso.add(knot);
+    [[0.04, 0.54, 0.2], [0.09, 0.55, -0.15]].forEach(([x, y, rz]) => { const tail = M(new THREE.BoxGeometry(0.06, 0.2, 0.025), scm); tail.position.set(x, y, 0.165); tail.rotation.z = rz; torso.add(tail);
+      const fr = M(new THREE.BoxGeometry(0.06, 0.02, 0.026), flat(0xf4f1ea)); fr.position.set(x + Math.sin(rz) * 0.1, y - 0.1, 0.166); fr.rotation.z = rz; torso.add(fr); }); }
   const head = new THREE.Group(); head.position.y = 0.88; torso.add(head); parts.head = head;
   const skull = M(GEO.skull, skin); skull.scale.set(1, 1.12, 1); head.add(skull);
   const eyeM = lam(0x111111);
   parts.eyes = [-0.048, 0.048].map(ex => { const e = M(GEO.eye, eyeM); e.position.set(ex, 0.025, 0.13); head.add(e); return e; });
   const nose = M(GEO.nose, skin); nose.rotation.x = Math.PI/2; nose.position.set(0, -0.01, 0.15); head.add(nose);
   const cap = (sy=1, y=0.03, m=hairM) => { const h = M(GEO.cap, m); h.scale.set(1, 1.1*sy, 1.04); h.position.y = y; h.rotation.x = -0.25; head.add(h); return h; };
-  if (['short','bun','long'].includes(look.hair)) cap();
+  if (['short','bun','long'].includes(look.hair)){
+    cap();
+    // a fringe and side pieces so it reads as hair, not a helmet
+    const fr = M(new THREE.BoxGeometry(0.2, 0.035, 0.05), hairM); fr.position.set(0, 0.105, 0.115); fr.rotation.x = -0.5; head.add(fr);
+    for (const sx of [-1, 1]){ const sb = M(new THREE.BoxGeometry(0.03, 0.08, 0.09), hairM); sb.position.set(sx * 0.138, 0.03, 0.02); head.add(sb); }
+  }
   if (look.hair === 'slick'){
     const sm = matCache['slick' + look.hairC] || (matCache['slick' + look.hairC] = new THREE.MeshPhongMaterial({color:look.hairC ?? 0x222222, shininess:24, specular:0x2a2a2a, flatShading:true}));
     const h = M(GEO.cap, sm); h.scale.set(1.05, 1.02, 1.1); h.position.set(0, 0.0, -0.012); h.rotation.x = -0.42; head.add(h);   // combed back, glossy, forehead clear
     const quiff = M(new THREE.BoxGeometry(0.15, 0.055, 0.1), sm); quiff.position.set(0, 0.135, 0.06); quiff.rotation.x = -0.55; head.add(quiff);
   }
-  if (look.hair === 'bun'){ const b = M(GEO.bun, hairM); b.position.set(0, 0.15, -0.09); head.add(b); }
-  if (look.hair === 'long'){ const b = M(GEO.longHair, hairM); b.position.set(0, -0.1, -0.1); head.add(b); }
+  if (look.hair === 'bun'){ const b = M(GEO.bun, hairM); b.position.set(0, 0.15, -0.09); head.add(b); const tie = M(new THREE.TorusGeometry(0.038, 0.009, 4, 10), flat(0xd0303a)); tie.position.set(0, 0.13, -0.075); tie.rotation.x = 1.0; head.add(tie); }
+  if (look.hair === 'long'){
+    const hm2 = matCache['long' + look.hairC] || (matCache['long' + look.hairC] = Object.assign(new THREE.MeshLambertMaterial({color:look.hairC ?? 0x222222, side:THREE.DoubleSide}), {userData:{flat:true}}));
+    const b = M(GEO.longHair, hm2); b.position.set(0, -0.08, -0.01); head.add(b);
+    for (const sx of [-1, 1]){ const lock = M(new THREE.BoxGeometry(0.04, 0.24, 0.07), hairM); lock.position.set(sx * 0.15, -0.07, 0.05); lock.rotation.z = sx * -0.06; head.add(lock); }
+  }
   if (look.hair === 'bald'){ const r = M(new THREE.TorusGeometry(0.135, 0.022, 3, 8, Math.PI*1.1), hairM); r.rotation.set(Math.PI/2, 0, Math.PI*0.9); r.position.y = -0.01; head.add(r); }
-  if (look.beard){ const b = M(new THREE.SphereGeometry(0.1, 6, 4, 0, Math.PI*2, Math.PI*0.45, Math.PI*0.55), hairM); b.position.set(0, -0.06, 0.05); b.scale.set(1.1, 1, 1); head.add(b); }
-  if (look.acc === 'cigar'){ const cg = M(new THREE.BoxGeometry(0.018, 0.018, 0.09), flat(0x6a4020)); cg.position.set(0.04, -0.06, 0.18); cg.rotation.y = 0.35; head.add(cg); const em = M(new THREE.BoxGeometry(0.02, 0.02, 0.012), new THREE.MeshBasicMaterial({color:0xff6a20})); em.position.set(0.058, -0.06, 0.225); head.add(em); }
-  if (look.stache){ const s = M(new THREE.BoxGeometry(0.1, 0.022, 0.03), hairM); s.position.set(0, -0.05, 0.14); head.add(s); }
-  if (look.glasses === 'glasses'){ const gm = lam(0x222222); for (const ex of [-0.05, 0.05]){ const r = M(new THREE.TorusGeometry(0.03, 0.007, 3, 6), gm); r.position.set(ex, 0.025, 0.142); head.add(r); } }
-  if (look.glasses === 'gold'){ const s = M(new THREE.BoxGeometry(0.21, 0.05, 0.02), gold); s.position.set(0, 0.03, 0.135); head.add(s); const l = M(new THREE.BoxGeometry(0.17, 0.035, 0.01), flat(0x2a1a05)); l.position.set(0, 0.03, 0.147); head.add(l); }
-  if (look.glasses === 'shades'){ const s = M(new THREE.BoxGeometry(0.2, 0.05, 0.02), flat(0x050505)); s.position.set(0, 0.03, 0.135); head.add(s); }
-  if (look.hat === 'cowboy'){ const hm = flat(look.hatC ?? 0x6b4a2b); const brim = M(new THREE.CylinderGeometry(0.28, 0.28, 0.015, 8), hm); brim.position.y = 0.1; head.add(brim); const cr = M(new THREE.CylinderGeometry(0.12, 0.15, 0.15, 6), hm); cr.position.y = 0.18; head.add(cr); }
-  if (look.hat === 'cap'){ const hm = flat(look.hatC); cap(1, 0.04, hm); const v = M(new THREE.BoxGeometry(0.2, 0.012, 0.13), hm); v.position.set(0, 0.075, 0.205); v.rotation.x = 0.12; head.add(v); }
-  const gold = matCache.gold || (matCache.gold = Object.assign(new THREE.MeshPhongMaterial({color:0xe8b830, shininess:90, specular:0xfff0b0, flatShading:true}), {userData:{}}));
+  if (look.beard){ const b = M(new THREE.SphereGeometry(0.1, 10, 6, 0, Math.PI*2, Math.PI*0.45, Math.PI*0.55), hairM); b.position.set(0, -0.06, 0.05); b.scale.set(1.12, 1.05, 1); head.add(b); const st = M(new THREE.BoxGeometry(0.1, 0.022, 0.03), hairM); st.position.set(0, -0.045, 0.14); head.add(st); }
+  if (look.acc === 'cigar'){ const cig = new THREE.Group(); cig.position.set(0.035, -0.06, 0.16); cig.rotation.y = 0.35; cig.rotation.x = 0.12; head.add(cig);
+    const body = M(new THREE.CylinderGeometry(0.011, 0.012, 0.1, 6), flat(0x6a4020)); body.rotation.x = Math.PI / 2; body.position.z = 0.04; cig.add(body);
+    const ring = M(new THREE.CylinderGeometry(0.0125, 0.0125, 0.012, 6), gold); ring.rotation.x = Math.PI / 2; ring.position.z = 0.02; cig.add(ring);
+    const ash = M(new THREE.CylinderGeometry(0.011, 0.011, 0.012, 6), flat(0x9a9a9a)); ash.rotation.x = Math.PI / 2; ash.position.z = 0.094; cig.add(ash);
+    const em = M(new THREE.CylinderGeometry(0.0115, 0.0115, 0.004, 6), new THREE.MeshBasicMaterial({color:0xff6a20})); em.rotation.x = Math.PI / 2; em.position.z = 0.101; cig.add(em); }
+  if (look.stache){ for (const sx of [-1, 1]){ const s = M(new THREE.BoxGeometry(0.06, 0.022, 0.03), hairM); s.position.set(sx * 0.028, -0.052, 0.14); s.rotation.z = sx * -0.25; head.add(s); } }
+  const temples = (m, y) => { for (const sx of [-1, 1]){ const t = M(new THREE.BoxGeometry(0.008, 0.008, 0.13), m); t.position.set(sx * 0.13, y, 0.075); head.add(t); } const br = M(new THREE.BoxGeometry(0.03, 0.008, 0.008), m); br.position.set(0, y + 0.004, 0.146); head.add(br); };
+  if (look.glasses === 'glasses'){ const gm = lam(0x222222); for (const ex of [-0.05, 0.05]){ const r = M(new THREE.TorusGeometry(0.032, 0.006, 4, 12), gm); r.position.set(ex, 0.025, 0.142); head.add(r); } temples(gm, 0.025); }
+  if (look.glasses === 'gold'){ for (const ex of [-0.052, 0.052]){ const f = M(new THREE.BoxGeometry(0.085, 0.05, 0.012), gold); f.position.set(ex, 0.028, 0.14); head.add(f); const l = M(new THREE.BoxGeometry(0.07, 0.036, 0.01), flat(0x2a1a05)); l.position.set(ex, 0.028, 0.147); head.add(l); } temples(gold, 0.035); }
+  if (look.glasses === 'shades'){ const sm2 = matCache.shades || (matCache.shades = new THREE.MeshPhongMaterial({color:0x050508, shininess:100, specular:0x8899aa, flatShading:true})); for (const ex of [-0.05, 0.05]){ const l = M(new THREE.BoxGeometry(0.085, 0.048, 0.016), sm2); l.position.set(ex, 0.028, 0.138); l.rotation.z = ex > 0 ? -0.06 : 0.06; head.add(l); } temples(lam(0x111111), 0.035); }
+  if (look.hat === 'cowboy'){ const hm = flat(look.hatC ?? 0x6b4a2b);
+    const brim = M(new THREE.CylinderGeometry(0.28, 0.28, 0.015, 14), hm); brim.position.y = 0.1; brim.scale.set(1, 1, 0.85); head.add(brim);
+    for (const sx of [-1, 1]){ const up = M(new THREE.BoxGeometry(0.06, 0.012, 0.32), hm); up.position.set(sx * 0.255, 0.13, 0); up.rotation.z = sx * 0.6; head.add(up); }   // curled sides
+    const cr = M(new THREE.CylinderGeometry(0.115, 0.15, 0.16, 10), hm); cr.position.y = 0.185; head.add(cr);
+    const dent = M(new THREE.BoxGeometry(0.04, 0.02, 0.2), flat(0x000000)); dent.material = hm; dent.position.y = 0.265; head.add(dent);
+    const band = M(new THREE.CylinderGeometry(0.152, 0.152, 0.03, 10), flat(0x2a1a10)); band.position.y = 0.125; head.add(band); }
+  if (look.hat === 'cap'){ const hm = flat(look.hatC); cap(1, 0.04, hm);
+    const v = M(new THREE.CylinderGeometry(0.12, 0.12, 0.012, 12, 1, false, -Math.PI / 2, Math.PI), hm); v.position.set(0, 0.075, 0.13); v.scale.set(1, 1, 1.05); v.rotation.x = 0.12; head.add(v);
+    const btn = M(new THREE.SphereGeometry(0.018, 6, 4), hm); btn.position.y = 0.18; head.add(btn); }
   if (look.hat === 'beret'){ const b = M(new THREE.CylinderGeometry(0.17, 0.16, 0.05, 9), flat(look.hatC)); b.position.set(0.02, 0.135, -0.01); b.rotation.z = -0.2; head.add(b); const t = M(new THREE.BoxGeometry(0.02, 0.03, 0.02), flat(look.hatC)); t.position.set(0.03, 0.17, -0.01); head.add(t); }
   if (look.hat === 'tophat'){ const hm = flat(0x141418); const brim = M(new THREE.CylinderGeometry(0.24, 0.24, 0.015, 10), hm); brim.position.y = 0.11; head.add(brim);
-    const cr = M(new THREE.CylinderGeometry(0.13, 0.13, 0.26, 10), hm); cr.position.y = 0.245; head.add(cr);
+    const cr = M(new THREE.CylinderGeometry(0.135, 0.125, 0.26, 14), hm); cr.position.y = 0.245; head.add(cr);
     const band = M(new THREE.CylinderGeometry(0.133, 0.133, 0.04, 10), flat(look.hatC)); band.position.y = 0.14; head.add(band); }
-  if (look.hat === 'crown'){ const ring = M(new THREE.CylinderGeometry(0.15, 0.14, 0.07, 8, 1, true), Object.assign(gold.clone(), {side:THREE.DoubleSide})); ring.position.y = 0.15; head.add(ring);
+  if (look.hat === 'crown'){ const ring = M(new THREE.CylinderGeometry(0.15, 0.14, 0.07, 16, 1, true), Object.assign(gold.clone(), {side:THREE.DoubleSide})); ring.position.y = 0.15; head.add(ring);
     for (let k = 0; k < 8; k++){ const a = k / 8 * Math.PI * 2; const sp = M(new THREE.ConeGeometry(0.03, 0.08, 4), gold); sp.position.set(Math.sin(a) * 0.145, 0.22, Math.cos(a) * 0.145); head.add(sp); }
-    const gem = M(new THREE.OctahedronGeometry(0.025), flat(0xc0182a)); gem.position.set(0, 0.155, 0.15); head.add(gem); }
-  if (look.hat === 'beanie'){ const c = cap(1.25, 0.02, flat(look.hatC)); c.rotation.x = -0.1; }
+    [[0, 0xc0182a], [Math.PI / 2, 0x2a8ad0], [-Math.PI / 2, 0x2ab060], [Math.PI, 0xc0182a]].forEach(([a, c]) => { const gem = M(new THREE.OctahedronGeometry(0.022), flat(c)); gem.position.set(Math.sin(a) * 0.15, 0.155, Math.cos(a) * 0.15); head.add(gem); }); }
+  if (look.hat === 'beanie'){ const bm = flat(look.hatC); const c = cap(1.25, 0.02, bm); c.rotation.x = -0.1;
+    const fold = M(new THREE.TorusGeometry(0.15, 0.025, 5, 16), bm); fold.rotation.x = Math.PI / 2 - 0.1; fold.position.y = 0.05; head.add(fold);
+    const pom = M(new THREE.IcosahedronGeometry(0.04, 0), flat(0xf4f1ea)); pom.position.y = 0.22; head.add(pom); }
   parts.arms = [-1, 1].map(sx => {
     const piv = new THREE.Group(); piv.position.set(sx*0.25, 0.6, 0); torso.add(piv);
     const up = M(GEO.upper, shirt); up.position.y = -0.16; piv.add(up);
@@ -2551,6 +2655,31 @@ function syncAvatarOpts(){
 /* ---------- table chat: 20-character speech bubbles ---------- */
 const CHAT = {n:0, last:0, seen:{}};
 const cleanMsg = t => String(t || '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f]/g, '').trim().slice(0, 20);
+const LINES = {
+  raise:   ['Subo.', 'Vamos fuerte.', '¿Te atreves?', 'Esta es mía.', 'Subamos esto.', 'A ver qué haces.'],
+  allin:   ['All-in.', 'Todo dentro.', 'Me lo juego todo.', 'Va todo.'],
+  call:    ['Te veo.', 'Pago.', 'No me lo creo.', 'Voy.', 'Enséñamelas.'],
+  fold:    ['Me retiro.', 'Toda tuya.', 'Hoy no.', 'Paso de esto.', 'Demasiado para mí.'],
+  win:     ['¡Gracias!', 'Así se juega.', 'Lo sabía.', 'Para mí.', 'Bien jugado.'],
+  bluffwin:['Era un farol.', 'No tenía nada.', 'Me lo he inventado.'],
+  lose:    ['Qué suerte tienes.', 'Increíble…', 'La próxima es mía.', 'Vaya mano…', 'Ufff.'],
+  tilt:    ['Esto está trucado.', 'Otra vez…', 'No puede ser.'],
+};
+try { G.talk = localStorage.getItem('lpp-talk') !== '0'; } catch(e){ G.talk = true; }
+function setTalk(on){ G.talk = on; try { localStorage.setItem('lpp-talk', on ? '1' : '0'); } catch(e){} document.querySelectorAll('#talkT, #optTalk').forEach(el => el.checked = on); }
+// a bot says something now and then; chattier bots (aggressive, on tilt) talk more. Shown to everyone at the table.
+function botSay(p, kind, chance){
+  if (!p || p.kind !== 'bot' || G.mode === 'client') return;
+  const now = performance.now();
+  if (now - (p.saidAt || 0) < 7000) return;
+  const talky = 0.6 + (p.aggr || 0.5) * 0.6 + (p.tilt || 0) * 0.5;
+  if (Math.random() > chance * talky) return;
+  const list = (p.tilt || 0) > 0.6 && kind === 'lose' ? LINES.tilt : LINES[kind];
+  const t = list[Math.random() * list.length | 0];
+  p.saidAt = now; p.say = {n:((p.say && p.say.n) || 0) + 1, t};
+  if (G.talk){ const i = G.players.indexOf(p); if (i > 0) bubble(i, t); }
+  if (G.mode === 'host') broadcast();
+}
 function bubble(seat, text){
   if (!text) return;
   let el;
