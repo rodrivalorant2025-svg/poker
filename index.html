@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Texas Hold'em en 3D con dinero ficticio. Juega solo contra bots o con amigos online, sin cuenta.">
 <title>Low Poly Poker</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><polygon points='32,32 58.8,43.1 43.1,58.8' fill='%23e0393f'/><polygon points='32,32 43.1,58.8 20.9,58.8' fill='%23c92a31'/><polygon points='32,32 20.9,58.8 5.2,43.1' fill='%23b0222a'/><polygon points='32,32 5.2,43.1 5.2,20.9' fill='%239c1c24'/><polygon points='32,32 5.2,20.9 20.9,5.2' fill='%238f1820'/><polygon points='32,32 20.9,5.2 43.1,5.2' fill='%23a11f27'/><polygon points='32,32 43.1,5.2 58.8,20.9' fill='%23b8262e'/><polygon points='32,32 58.8,20.9 58.8,43.1' fill='%23d2343a'/><polygon points='55.8,48.5 48.5,55.8 43.1,48.7 48.7,43.1' fill='%23f4efe4'/><polygon points='15.5,55.8 8.2,48.5 15.3,43.1 20.9,48.7' fill='%23f4efe4'/><polygon points='8.2,15.5 15.5,8.2 20.9,15.3 15.3,20.9' fill='%23f4efe4'/><polygon points='48.5,8.2 55.8,15.5 48.7,20.9 43.1,15.3' fill='%23f4efe4'/><polygon points='47.7,38.5 38.5,47.7 25.5,47.7 16.3,38.5 16.3,25.5 25.5,16.3 38.5,16.3 47.7,25.5' fill='%23c92a31' stroke='%23f4efe4' stroke-width='2'/><polygon points='47.7,38.5 38.5,47.7 25.5,47.7 16.3,38.5 16.3,25.5 25.5,16.3 38.5,16.3 47.7,25.5' fill='%23000' opacity='.12'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap">
 <style>
@@ -197,6 +198,18 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .startbox .col .sect{border-top:0;padding-top:0;margin-top:0}
 .avbox{height:300px;border-radius:10px;background:radial-gradient(ellipse at 50% 40%,rgba(255,220,160,.18),rgba(0,0,0,.35) 75%);overflow:hidden}
 .avbox canvas{width:100%;height:100%;display:block}
+.wallet{text-align:center;font-size:14px;color:var(--txt)}
+.wallet b{color:var(--gold);font-family:var(--f-title);font-weight:800;font-size:17px}
+.wallet b.dn,.shop b.dn,.dimtxt b.dn{color:var(--bad)}
+.scrhead .wallet{margin-left:auto}
+.row.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.shop{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;max-height:52vh;overflow-y:auto;padding-right:4px}
+.shop .item{display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,.28);border:1px solid rgba(217,180,90,.3);border-radius:9px;padding:9px 10px}
+.shop .item.own{border-color:rgba(127,224,164,.6)}
+.shop .ik{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.shop .ip{font-family:var(--f-title);font-weight:800;color:var(--gold);font-size:17px}
+.shop .btn{margin-top:4px}
+.sw.vip{box-shadow:0 0 0 2px var(--gold),inset 0 1px 0 rgba(255,255,255,.25)}
 .avopts{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center}
 .avopts .bl{font-size:14px;color:var(--dim)}
 .avopts select{font:700 14px var(--f-ui);color:var(--txt);background:rgba(0,0,0,.45);border:1px solid rgba(217,180,90,.45);border-radius:7px;padding:7px 9px;min-width:0}
@@ -371,7 +384,8 @@ html.inmenu .bottom > *{transition-delay:0s}
           <button class="btn call big" id="goSolo">JUGAR SOLO<small>Tú contra 4 bots</small></button>
           <button class="btn raise big" id="goOnline">JUGAR ONLINE<small>Mesas de hasta 5 personas</small></button>
         </div>
-        <button class="btn wide" id="goAvatar">PERSONALIZAR MI AVATAR</button>
+        <div class="row two"><button class="btn wide" id="goAvatar">PERSONALIZAR MI AVATAR</button><button class="btn raise wide" id="goShop">TIENDA</button></div>
+        <div class="wallet" id="walletLine"></div>
       </section>
 
       <section class="scr" id="scrSetup" hidden>
@@ -390,6 +404,12 @@ html.inmenu .bottom > *{transition-delay:0s}
             <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
           </div>
         </div>
+      </section>
+
+      <section class="scr" id="scrShop" hidden>
+        <div class="scrhead"><button class="btn tiny" id="backShop">◀ VOLVER</button><h3>TIENDA</h3><span class="wallet" id="shopWallet"></span></div>
+        <div class="dimtxt" id="shopNote">Objetos exclusivos para tu avatar. Se ven en las mesas online y luego se eligen en "Personalizar mi avatar".</div>
+        <div class="shop" id="shopGrid"></div>
       </section>
 
       <section class="scr" id="scrAvatar" hidden>
@@ -784,6 +804,25 @@ function toast(t1, t2='', kind='', ms=3400){
 }
 
 /* ---------- hand flow ---------- */
+const LUCK_DEBT = 3000;
+function startStrength(a, b){ const hi = Math.max(a.r, b.r), lo = Math.min(a.r, b.r);
+  return hi * 2 + lo + (a.r === b.r ? 22 + hi : 0) + (a.s === b.s ? 4 : 0) + (hi - lo <= 2 && a.r !== b.r ? 2 : 0); }
+function luckyDeal(plan){
+  for (const p of G.players){
+    if (p.kind !== 'me' && p.kind !== 'remote') continue;
+    if ((p.debt || 0) <= LUCK_DEBT || Math.random() > 0.45) continue;    // only sometimes: a nudge, not a guarantee
+    const idx = G.players.indexOf(p); const mine = plan.filter(x => x[0] === idx); if (mine.length !== 2) continue;
+    let bestS = startStrength(mine[0][1], mine[1][1]), pick = null;
+    for (let t = 0; t < 3; t++){                                             // look at 3 other random pairs still in the deck
+      const a = Math.random() * G.deck.length | 0; let b = Math.random() * G.deck.length | 0; if (a === b) continue;
+      const sc = startStrength(G.deck[a], G.deck[b]); if (sc > bestS){ bestS = sc; pick = [a, b]; }
+    }
+    if (!pick) continue;
+    const [a, b] = pick; const ca = G.deck[a], cb = G.deck[b];
+    G.deck[a] = mine[0][1]; G.deck[b] = mine[1][1];                          // swap: the deck stays a full, fair 52-card set
+    mine[0][1] = ca; mine[1][1] = cb;
+  }
+}
 function move(p, x){ x = Math.min(x, p.chips); p.chips -= x; p.bet += x; p.total += x; if (p.chips === 0) p.allIn = true; return x; }
 
 async function startHand(){
@@ -813,7 +852,10 @@ async function startHand(){
   G.maxBet = BB; G.minRaise = BB;
   render();
   await sleep(400);
-  for (let r=0;r<2;r++){ let i = G.dealer; for (let k=0;k<active;k++){ i = nextIdx(i, p => !p.out); G.players[i].hole.push(G.deck.pop()); render(); await sleep(170); } }
+  const plan = [];
+  for (let r=0;r<2;r++){ let i = G.dealer; for (let k=0;k<active;k++){ i = nextIdx(i, p => !p.out); plan.push([i, G.deck.pop()]); } }
+  luckyDeal(plan);
+  for (const [i, c] of plan){ G.players[i].hole.push(c); render(); await sleep(170); }
   if (G.mode === 'host') await encryptHoles();
   G.street = 'preflop';
   G.players.forEach(p => p.needs = canAct(p));
@@ -1030,6 +1072,7 @@ function repayDebts(){
 function endHand(){
   G.handOver = true; G.turn = -1;
   if (G.mode !== 'client') repayDebts();
+  saveWallet();
   showResult();
   G.players.forEach(p => { p.needs = false; });
   celebrate();
@@ -1158,7 +1201,20 @@ onPress('#bRaise', () => humanAct({t:'raise', to:G.raiseTo}));
 onPress('#bAll', () => humanAct({t:'raise', to:raiseBounds().max}));
 onPress('#bFold', () => humanAct({t:'fold'}));
 onPress('#bNext', () => startHand());
-function takeLoan(p){ p.chips += START; p.debt += START; }
+function takeLoan(p){ p.chips += START; p.debt += START; if (p.kind === 'me') saveWallet(); }
+const WALLET_MAX = 10000000;
+function loadWallet(){ try { const w = JSON.parse(localStorage.getItem('lpp-wallet') || 'null'); if (w && Number.isFinite(+w.chips) && Number.isFinite(+w.debt)) return {chips:Math.max(0, Math.min(WALLET_MAX, Math.floor(+w.chips))), debt:Math.max(0, Math.min(WALLET_MAX, Math.floor(+w.debt)))}; } catch(e){} return {chips:START, debt:0}; }
+let WALLET = loadWallet();
+function saveWallet(){
+  const me = G.players[0]; if (!me || me.kind === 'empty') return;
+  if (G.mode === 'client' && !NET.seated) return;
+  const w = {chips:Math.max(0, Math.floor(me.chips + (me.bet || 0) * 0)), debt:Math.max(0, Math.floor(me.debt || 0))};
+  if (w.chips === WALLET.chips && w.debt === WALLET.debt) return;
+  WALLET = w; try { localStorage.setItem('lpp-wallet', JSON.stringify(w)); } catch(e){}
+  showWallet();
+}
+function showWallet(){ const el = $('#walletLine'); if (el) el.innerHTML = `Tus fichas: <b>${fmt(WALLET.chips)}</b> · Deuda: <b class="${WALLET.debt ? 'dn' : ''}">${fmt(WALLET.debt)}</b>`; const s2 = $('#shopWallet'); if (s2) s2.innerHTML = el.innerHTML; }
+function seatMe(p){ p.chips = WALLET.chips; p.debt = WALLET.debt; }
 onPress('#bReload', () => {
   const me = G.players[0];
   if (G.mode === 'client'){ NET.loanReq = (NET.loanReq || 0) + 1; NET.table && NET.table.presence({loan:NET.loanReq}).catch(() => {}); $('#bReload').disabled = true; return; }
@@ -1299,18 +1355,42 @@ const HUMAN_LOOKS = [
 ];
 const AV = {
   h:   [['short','Corto'], ['long','Largo'], ['bun','Moño'], ['slick','Engominado'], ['bald','Calvo']],
-  hc:  [0x1a1210, 0x3b2414, 0x6b4a2a, 0x8a3b1c, 0xc9a050, 0xd8d2c8, 0x2b4a9a, 0xc02a6a],
+  hc:  [0x1a1210, 0x3b2414, 0x6b4a2a, 0x8a3b1c, 0xc9a050, 0xd8d2c8, 0x2b4a9a, 0xc02a6a, 0xecebf5, 0x39e07a, 0x8a3be0],
   sk:  [0xf3d0b5, 0xe8c09a, 0xd2a07a, 0xb98159, 0x8d5a3b, 0x5e3a24],
-  tp:  [['tee','Camiseta'], ['suit','Traje'], ['hoodie','Sudadera'], ['vest','Chaleco']],
-  sh:  [0xb3202a, 0x2f7d5b, 0x2b4a9a, 0x1e2a44, 0xe0b82e, 0x7a2b5a, 0xc7702c, 0x4f6b73, 0xf1ece2, 0x222228],
-  hat: [['', 'Ninguno'], ['cap', 'Gorra'], ['cowboy', 'Vaquero'], ['beanie', 'Gorro de lana']],
+  tp:  [['tee','Camiseta'], ['suit','Traje'], ['hoodie','Sudadera'], ['vest','Chaleco'], ['leather','Cazadora de cuero'], ['stripes','Camiseta a rayas'], ['tux','Esmoquin']],
+  sh:  [0xb3202a, 0x2f7d5b, 0x2b4a9a, 0x1e2a44, 0xe0b82e, 0x7a2b5a, 0xc7702c, 0x4f6b73, 0xf1ece2, 0x222228, 0xd9a93a, 0xff4fa3],
+  hat: [['', 'Ninguno'], ['cap', 'Gorra'], ['cowboy', 'Vaquero'], ['beanie', 'Gorro de lana'], ['beret', 'Boina'], ['tophat', 'Sombrero de copa'], ['crown', 'Corona']],
   hatc:[0x6b4a2b, 0xb03030, 0x2b6cb0, 0x2f7d5b, 0x222228, 0xe0b82e, 0x7a2633],
-  gl:  [['', 'Ninguna'], ['glasses', 'Gafas'], ['shades', 'Gafas de sol']],
+  gl:  [['', 'Ninguna'], ['glasses', 'Gafas'], ['shades', 'Gafas de sol'], ['gold', 'Gafas de oro']],
+  acc: [['', 'Ninguno'], ['chain', 'Cadena de oro'], ['cigar', 'Puro'], ['scarf', 'Bufanda']],
   fh:  [['', 'Nada'], ['stache', 'Bigote'], ['beard', 'Barba']],
 };
-const AV_DEFAULT = {h:0, hc:1, sk:1, tp:0, sh:2, hat:0, hatc:1, gl:0, fh:0};
+const AV_DEFAULT = {h:0, hc:1, sk:1, tp:0, sh:2, hat:0, hatc:1, gl:0, fh:0, acc:0};
+// exclusive items, bought with chips in the shop
+const SHOP = [
+  {id:'hc-plat', k:'hc', i:8, name:'Pelo platino', kind:'Color de pelo', price:100},
+  {id:'hc-neon', k:'hc', i:9, name:'Pelo verde neón', kind:'Color de pelo', price:150},
+  {id:'hc-purp', k:'hc', i:10, name:'Pelo morado', kind:'Color de pelo', price:120},
+  {id:'tp-leather', k:'tp', i:4, name:'Cazadora de cuero', kind:'Ropa', price:400},
+  {id:'tp-stripes', k:'tp', i:5, name:'Camiseta a rayas', kind:'Ropa', price:200},
+  {id:'tp-tux', k:'tp', i:6, name:'Esmoquin', kind:'Ropa', price:500},
+  {id:'sh-gold', k:'sh', i:10, name:'Ropa dorada', kind:'Color de ropa', price:350},
+  {id:'sh-pink', k:'sh', i:11, name:'Ropa rosa chicle', kind:'Color de ropa', price:150},
+  {id:'hat-beret', k:'hat', i:4, name:'Boina', kind:'Sombrero', price:180},
+  {id:'hat-top', k:'hat', i:5, name:'Sombrero de copa', kind:'Sombrero', price:300},
+  {id:'hat-crown', k:'hat', i:6, name:'Corona', kind:'Sombrero', price:500},
+  {id:'gl-gold', k:'gl', i:3, name:'Gafas de oro', kind:'Gafas', price:250},
+  {id:'acc-chain', k:'acc', i:1, name:'Cadena de oro', kind:'Accesorio', price:400},
+  {id:'acc-cigar', k:'acc', i:2, name:'Puro', kind:'Accesorio', price:150},
+  {id:'acc-scarf', k:'acc', i:3, name:'Bufanda', kind:'Accesorio', price:120},
+];
+const OWNED = new Set();
+try { (JSON.parse(localStorage.getItem('lpp-owned') || '[]') || []).forEach(id => { if (SHOP.some(x => x.id === id)) OWNED.add(id); }); } catch(e){}
+const shopItem = (k, i) => SHOP.find(x => x.k === k && x.i === i);
+const locked = (k, i) => { const it = shopItem(k, i); return !!it && !OWNED.has(it.id); };
+function ownAv(a){ a = cleanAv(a); for (const k in a) if (locked(k, a[k])) a[k] = AV_DEFAULT[k]; return a; }
 function cleanAv(a){ const o = {}; for (const k in AV_DEFAULT){ const n = Math.floor(+((a || {})[k])); o[k] = Number.isFinite(n) ? Math.max(0, Math.min(AV[k].length - 1, n)) : AV_DEFAULT[k]; } return o; }
-function lookFromAv(a){ a = cleanAv(a); return {hair:AV.h[a.h][0], hairC:AV.hc[a.hc], skin:AV.sk[a.sk], shirt:AV.sh[a.sh], top:AV.tp[a.tp][0], hat:AV.hat[a.hat][0] || undefined, hatC:AV.hatc[a.hatc], glasses:AV.gl[a.gl][0] || undefined, stache:a.fh === 1, beard:a.fh === 2}; }
+function lookFromAv(a){ a = cleanAv(a); return {hair:AV.h[a.h][0], hairC:AV.hc[a.hc], skin:AV.sk[a.sk], shirt:AV.sh[a.sh], top:AV.tp[a.tp][0], hat:AV.hat[a.hat][0] || undefined, hatC:AV.hatc[a.hatc], glasses:AV.gl[a.gl][0] || undefined, stache:a.fh === 1, beard:a.fh === 2, acc:AV.acc[a.acc][0] || undefined}; }
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const NET = { room:null, table:null, code:'', tableName:'', myPeer:null, seated:false, answered:-1, turnAi:-1, lastS:null, myHoleE:'', myHole:[], hostPub:'', hadHost:false };
 function celebrate(){ G.players.forEach((p, i) => { if (p.win && seats[i] && seats[i].person) seats[i].person.winT = clock.elapsedTime; }); }
@@ -1377,6 +1457,7 @@ function vacate(p){ const i = G.players.indexOf(p); if (i > 0) G.players[i] = G.
 function hostSeatSync(){
   if (!NET.table) return;
   if (!G.running) G.players.slice().forEach(p => { if (isGone(p)) vacate(p); });
+  if (G.players[0] && G.players[0].kind === 'me') G.players[0].av = ownAv(G.av);
   for (const pe of NET.table.peers()){
     if (pe.sameTab || pe.kind !== 'viewer' || pe.presence.role !== 'player') continue;
     const pub = String(pe.presence.pub || '');
@@ -1397,6 +1478,8 @@ function hostSeatSync(){
     if (i < 0 && !G.running) i = G.players.findIndex((q, k) => k > 0 && q.kind === 'bot');
     if (i < 0) continue;  // table full: they watch
     const np = newPlayer({name:cleanName(pe.presence.name), kind:'remote', peer:pe.peer, pub:String(pe.presence.pub || '')});
+    const wal = pe.presence.wal || {}; const clampW = v => Math.max(0, Math.min(WALLET_MAX, Math.floor(+v) || 0));
+    if (pe.presence.wal){ np.chips = clampW(wal.c); np.debt = clampW(wal.d); }
     np.av = cleanAv(pe.presence.av); np.avSig = JSON.stringify(np.av); np.look = lookFromAv(np.av); np.out = true;
     G.players[i] = np;
     toast(`${np.name.toUpperCase()} SE SIENTA`, G.running ? 'Jugará desde la próxima mano.' : 'Bienvenido a la mesa.', 'street', 2600);
@@ -1442,7 +1525,7 @@ async function hostCreate(name, fill){
   NET.tableName = String(name || '').replace(/[^\p{L}\p{N} _.'-]/gu, '').trim().slice(0, 20) || 'Mesa de ' + myName();
   NET.table = await NET.room.join(NET.code, {host:true});
   G.mode = 'host'; G.fill = fill;
-  const ps = [newPlayer({name:myName()})]; G.players = ps; ps[0].av = cleanAv(G.av);
+  const ps = [newPlayer({name:myName()})]; G.players = ps; ps[0].av = ownAv(G.av); seatMe(ps[0]);
   for (let i=1;i<N;i++) ps.push(fill ? makeBot(i) : emptySeat());
   G.dealer = 0; G.hand = 0; G.board = []; G.result = null; G.handOver = true; G.waitPlayers = true; clearCards();
   NET.table.onPeers(ch => { const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer; hostOnPeers(ch); readChat(ch.peers); });
@@ -1466,7 +1549,7 @@ async function clientJoin(code){
   $('#tableInfo').innerHTML = `Mesa: <b>${esc(code)}</b>`; $('#tableInfo').hidden = false;
   history.replaceState(null, '', location.pathname);
   G.handOver = true; G.waitPlayers = true; G.result = null;
-  NET.table.presence({role:'player', name:myName(), pub:myPub, av:cleanAv(G.av)}).catch(() => {});
+  NET.table.presence({role:'player', name:myName(), pub:myPub, av:ownAv(G.av), wal:{c:WALLET.chips, d:WALLET.debt}}).catch(() => {});
   NET.table.onPeers(ch => {
     const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer;
     readChat(ch.peers);
@@ -1591,7 +1674,7 @@ function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); 
 function setMenu(open){ $('#startOv').hidden = !open; document.documentElement.classList.toggle('inmenu', open); }
 function setManual(v){ G.manual = v; $('#manualT').checked = v; $('#optManual').checked = v; try { localStorage.setItem('mv-manual', v ? '1' : '0'); } catch(e){} if (!v){ G.sel = new Set(); sendSel(); } render(); }
 function setHelp(v){ G.help = v; $('#helpT').checked = v; $('#optHelp').checked = v; try { localStorage.setItem('mv-help', v ? '1' : '0'); } catch(e){} render(); }
-function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline', '#scrAvatar'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', id === '#scrSetup' || id === '#scrAvatar'); if (id === '#scrAvatar') startPreview(); else stopPreview(); }
+function showScreen(id){ ['#scrHome', '#scrSetup', '#scrOnline', '#scrAvatar', '#scrShop'].forEach(x => $(x).hidden = x !== id); $('#netErr').hidden = true; $('.startbox').classList.toggle('wide', ['#scrSetup', '#scrAvatar', '#scrShop'].includes(id)); if (id === '#scrAvatar'){ buildAvatarOpts(); startPreview(); } else stopPreview(); if (id === '#scrShop') buildShop(); if (id === '#scrHome') showWallet(); }
 function persDesc(){
   const used = [...new Set(G.botPrefs)];
   $('#persDesc').innerHTML = used.map(id => { const p = PERS.find(x => x.id === id); return `<b>${p.name}</b>: ${p.desc}`; }).join('<br>');
@@ -1637,6 +1720,9 @@ function setupMenu(){
   buildAvatarOpts();
   $('#goAvatar').onclick = () => { saveName(); showScreen('#scrAvatar'); };
   $('#backAvatar').onclick = () => showScreen('#scrHome');
+  $('#goShop').onclick = () => { saveName(); showScreen('#scrShop'); };
+  $('#backShop').onclick = () => showScreen('#scrHome');
+  showWallet();
   let target = 'solo';
   $('#goSolo').onclick = () => { saveName(); target = 'solo'; $('#setupTitle').textContent = 'PARTIDA SOLO'; $('#botCfg').hidden = false; $('#bStart').textContent = 'EMPEZAR PARTIDA'; showScreen('#scrSetup'); };
   $('#goOnline').onclick = () => { saveName(); showScreen('#scrOnline'); };
@@ -1820,6 +1906,16 @@ function makePerson(look, standing){
     const hood = M(new THREE.SphereGeometry(0.17, 7, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), shirt); hood.position.set(0, 0.66, -0.11); hood.rotation.x = -1.2; hood.scale.set(1.1, 1, 0.9); torso.add(hood);
     const pocket = M(new THREE.BoxGeometry(0.26, 0.11, 0.02), shirt); pocket.position.set(0, 0.16, 0.19); torso.add(pocket);
     for (const sx of [-1, 1]){ const cord = M(new THREE.BoxGeometry(0.012, 0.13, 0.012), flat(0xf4f1ea)); cord.position.set(sx * 0.04, 0.6, 0.19); torso.add(cord); }
+  } else if (look.top === 'leather'){
+    for (const sx of [-1, 1]){ const c = M(new THREE.BoxGeometry(0.1, 0.07, 0.04), shirt); c.position.set(sx * 0.1, 0.66, 0.12); c.rotation.z = sx * 0.4; torso.add(c); }
+    const zip = M(new THREE.BoxGeometry(0.012, 0.5, 0.012), flat(0xb8b8c0)); zip.position.set(0, 0.36, 0.195); torso.add(zip);
+  } else if (look.top === 'stripes'){
+    for (let k = 0; k < 4; k++){ const st = M(new THREE.CylinderGeometry(0.212 - k * 0.006, 0.208 - k * 0.006, 0.045, 7), flat(0xf4f1ea)); st.position.y = 0.14 + k * 0.13; torso.add(st); }
+  } else if (look.top === 'tux'){
+    const front = M(new THREE.BoxGeometry(0.13, 0.42, 0.02), flat(0xfaf8f2)); front.position.set(0, 0.44, 0.185); front.rotation.x = -0.06; torso.add(front);
+    const bow = M(new THREE.BoxGeometry(0.11, 0.045, 0.03), flat(0x111114)); bow.position.set(0, 0.63, 0.19); torso.add(bow);
+    for (let k = 0; k < 3; k++){ const bt = M(new THREE.BoxGeometry(0.018, 0.018, 0.01), flat(0x111114)); bt.position.set(0, 0.52 - k * 0.09, 0.2); torso.add(bt); }
+    for (const sx of [-1, 1]){ const lap = M(new THREE.BoxGeometry(0.045, 0.27, 0.02), flat(0x0e0e12)); lap.position.set(sx * 0.085, 0.5, 0.2); lap.rotation.z = sx * 0.3; torso.add(lap); }
   } else if (look.top === 'vest'){
     const v = M(new THREE.CylinderGeometry(0.218, 0.198, 0.52, 9, 1, true, -Math.PI*0.86, Math.PI*1.72), Object.assign(new THREE.MeshLambertMaterial({color:look.shirt, side:THREE.DoubleSide}), {userData:{flat:true}}));
     v.position.y = 0.3; v.rotation.y = Math.PI; torso.add(v);
@@ -1831,6 +1927,8 @@ function makePerson(look, standing){
     const bow = M(new THREE.BoxGeometry(0.12, 0.05, 0.03), flat(0xc21f2a)); bow.position.set(0, 0.64, 0.17); torso.add(bow);
   }
   const neck = M(GEO.neck, skin); neck.position.y = 0.72; torso.add(neck);
+  if (look.acc === 'chain'){ const ch = M(new THREE.TorusGeometry(0.11, 0.012, 4, 12), gold); ch.position.set(0, 0.6, 0.06); ch.rotation.x = 1.25; torso.add(ch); const md = M(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 8), gold); md.rotation.x = Math.PI / 2; md.position.set(0, 0.5, 0.18); torso.add(md); }
+  if (look.acc === 'scarf'){ const sc = M(new THREE.TorusGeometry(0.1, 0.035, 5, 10), flat(look.hatC ?? 0xb03030)); sc.rotation.x = Math.PI / 2; sc.position.y = 0.7; torso.add(sc); const tail = M(new THREE.BoxGeometry(0.06, 0.2, 0.03), flat(look.hatC ?? 0xb03030)); tail.position.set(0.06, 0.58, 0.16); torso.add(tail); }
   const head = new THREE.Group(); head.position.y = 0.88; torso.add(head); parts.head = head;
   const skull = M(GEO.skull, skin); skull.scale.set(1, 1.12, 1); head.add(skull);
   const eyeM = lam(0x111111);
@@ -1847,11 +1945,21 @@ function makePerson(look, standing){
   if (look.hair === 'long'){ const b = M(GEO.longHair, hairM); b.position.set(0, -0.1, -0.1); head.add(b); }
   if (look.hair === 'bald'){ const r = M(new THREE.TorusGeometry(0.135, 0.022, 3, 8, Math.PI*1.1), hairM); r.rotation.set(Math.PI/2, 0, Math.PI*0.9); r.position.y = -0.01; head.add(r); }
   if (look.beard){ const b = M(new THREE.SphereGeometry(0.1, 6, 4, 0, Math.PI*2, Math.PI*0.45, Math.PI*0.55), hairM); b.position.set(0, -0.06, 0.05); b.scale.set(1.1, 1, 1); head.add(b); }
+  if (look.acc === 'cigar'){ const cg = M(new THREE.BoxGeometry(0.018, 0.018, 0.09), flat(0x6a4020)); cg.position.set(0.04, -0.06, 0.18); cg.rotation.y = 0.35; head.add(cg); const em = M(new THREE.BoxGeometry(0.02, 0.02, 0.012), new THREE.MeshBasicMaterial({color:0xff6a20})); em.position.set(0.058, -0.06, 0.225); head.add(em); }
   if (look.stache){ const s = M(new THREE.BoxGeometry(0.1, 0.022, 0.03), hairM); s.position.set(0, -0.05, 0.14); head.add(s); }
   if (look.glasses === 'glasses'){ const gm = lam(0x222222); for (const ex of [-0.05, 0.05]){ const r = M(new THREE.TorusGeometry(0.03, 0.007, 3, 6), gm); r.position.set(ex, 0.025, 0.142); head.add(r); } }
+  if (look.glasses === 'gold'){ const s = M(new THREE.BoxGeometry(0.21, 0.05, 0.02), gold); s.position.set(0, 0.03, 0.135); head.add(s); const l = M(new THREE.BoxGeometry(0.17, 0.035, 0.01), flat(0x2a1a05)); l.position.set(0, 0.03, 0.147); head.add(l); }
   if (look.glasses === 'shades'){ const s = M(new THREE.BoxGeometry(0.2, 0.05, 0.02), flat(0x050505)); s.position.set(0, 0.03, 0.135); head.add(s); }
   if (look.hat === 'cowboy'){ const hm = flat(look.hatC ?? 0x6b4a2b); const brim = M(new THREE.CylinderGeometry(0.28, 0.28, 0.015, 8), hm); brim.position.y = 0.1; head.add(brim); const cr = M(new THREE.CylinderGeometry(0.12, 0.15, 0.15, 6), hm); cr.position.y = 0.18; head.add(cr); }
   if (look.hat === 'cap'){ const hm = flat(look.hatC); cap(1, 0.04, hm); const v = M(new THREE.BoxGeometry(0.2, 0.012, 0.13), hm); v.position.set(0, 0.075, 0.205); v.rotation.x = 0.12; head.add(v); }
+  const gold = matCache.gold || (matCache.gold = Object.assign(new THREE.MeshPhongMaterial({color:0xe8b830, shininess:90, specular:0xfff0b0, flatShading:true}), {userData:{}}));
+  if (look.hat === 'beret'){ const b = M(new THREE.CylinderGeometry(0.17, 0.16, 0.05, 9), flat(look.hatC)); b.position.set(0.02, 0.135, -0.01); b.rotation.z = -0.2; head.add(b); const t = M(new THREE.BoxGeometry(0.02, 0.03, 0.02), flat(look.hatC)); t.position.set(0.03, 0.17, -0.01); head.add(t); }
+  if (look.hat === 'tophat'){ const hm = flat(0x141418); const brim = M(new THREE.CylinderGeometry(0.24, 0.24, 0.015, 10), hm); brim.position.y = 0.11; head.add(brim);
+    const cr = M(new THREE.CylinderGeometry(0.13, 0.13, 0.26, 10), hm); cr.position.y = 0.245; head.add(cr);
+    const band = M(new THREE.CylinderGeometry(0.133, 0.133, 0.04, 10), flat(look.hatC)); band.position.y = 0.14; head.add(band); }
+  if (look.hat === 'crown'){ const ring = M(new THREE.CylinderGeometry(0.15, 0.14, 0.07, 8, 1, true), Object.assign(gold.clone(), {side:THREE.DoubleSide})); ring.position.y = 0.15; head.add(ring);
+    for (let k = 0; k < 8; k++){ const a = k / 8 * Math.PI * 2; const sp = M(new THREE.ConeGeometry(0.03, 0.08, 4), gold); sp.position.set(Math.sin(a) * 0.145, 0.22, Math.cos(a) * 0.145); head.add(sp); }
+    const gem = M(new THREE.OctahedronGeometry(0.025), flat(0xc0182a)); gem.position.set(0, 0.155, 0.15); head.add(gem); }
   if (look.hat === 'beanie'){ const c = cap(1.25, 0.02, flat(look.hatC)); c.rotation.x = -0.1; }
   parts.arms = [-1, 1].map(sx => {
     const piv = new THREE.Group(); piv.position.set(sx*0.25, 0.6, 0); torso.add(piv);
@@ -2156,6 +2264,7 @@ function render(){
   const dEl = $('#debt'); dEl.textContent = fmt(me.debt || 0); dEl.className = 'val' + (me.debt > 0 ? ' down' : '');
   const netEl = $('#net'); netEl.textContent = (net > 0 ? '+' : net < 0 ? '−' : '') + fmt(Math.abs(net)); netEl.className = 'val' + (net > 0 ? ' up' : net < 0 ? ' down' : '');
   $('#myChips2').textContent = fmt(me.chips);
+  if (G.mode === 'client' && NET.seated && G.handOver) saveWallet();
   renderControls();
   if (G.mode === 'host') broadcast();
 }
@@ -2280,7 +2389,7 @@ function frame(){
 }
 
 /* ---------- boot ---------- */
-G.players[0] = newPlayer({name:'Tú'});
+G.players[0] = newPlayer({name:'Tú'}); seatMe(G.players[0]);
 for (let i=1;i<N;i++) G.players[i] = makeBot(i);
 G.dealer = Math.random()*N|0;
 resize();
@@ -2308,21 +2417,43 @@ function startPreview(){
 function rebuildPreview(){ if (!pv) return; if (pv.fig) pv.sc.remove(pv.fig); pv.fig = makePerson(lookFromAv(G.av), false); pv.sc.add(pv.fig); }
 function stopPreview(){ if (!pv) return; cancelAnimationFrame(pv.raf); try { pv.r.dispose(); pv.r.forceContextLoss(); } catch(e){} pv = null; $('#avBox').innerHTML = ''; }
 function saveAv(){ try { localStorage.setItem('mv-avatar', JSON.stringify(G.av)); } catch(e){} }
+function buildShop(){
+  showWallet();
+  const inDebt = WALLET.debt > 0;
+  $('#shopNote').innerHTML = inDebt ? `<b class="dn">Tienes una deuda de ${fmt(WALLET.debt)}.</b> No puedes comprar hasta saldarla: gana manos y se irá pagando sola.` : 'Objetos exclusivos para tu avatar. Se ven en las mesas online y luego se eligen en "Personalizar mi avatar".';
+  $('#shopGrid').innerHTML = SHOP.map(it => {
+    const own = OWNED.has(it.id), can = !own && !inDebt && WALLET.chips >= it.price;
+    return `<div class="item${own ? ' own' : ''}"><span class="ik">${it.kind}</span><b>${it.name}</b><span class="ip">${fmt(it.price)}</span>
+      <button class="btn tiny${own ? '' : ' raise'}" data-buy="${it.id}" ${own || !can ? 'disabled' : ''}>${own ? 'COMPRADO' : inDebt ? 'CON DEUDA NO' : WALLET.chips < it.price ? 'SIN FICHAS' : 'COMPRAR'}</button></div>`;
+  }).join('');
+}
+function buy(id){
+  const it = SHOP.find(x => x.id === id); if (!it || OWNED.has(id) || WALLET.debt > 0 || WALLET.chips < it.price) return;
+  WALLET.chips -= it.price; OWNED.add(id);
+  try { localStorage.setItem('lpp-wallet', JSON.stringify(WALLET)); localStorage.setItem('lpp-owned', JSON.stringify([...OWNED])); } catch(e){}
+  if (G.mode === 'solo' && G.players[0]) G.players[0].chips = WALLET.chips;
+  G.av[it.k] = it.i; G.av = ownAv(G.av); saveAv();                        // wear it straight away
+  sfx.register && sfx.register();
+  buildShop();
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (b && !b.disabled) buy(b.dataset.buy); });
 function buildAvatarOpts(){
   const hex = c => '#' + c.toString(16).padStart(6, '0');
-  const sel = (k, label) => `<span class="bl">${label}</span><select data-k="${k}" aria-label="${label}">${AV[k].map((o, i) => `<option value="${i}">${o[1]}</option>`).join('')}</select>`;
-  const sws = (k, label) => `<span class="bl">${label}</span><div class="sws" role="group" aria-label="${label}">${AV[k].map((c, i) => `<button class="sw" data-k="${k}" data-i="${i}" style="background:${hex(c)}" aria-label="${label} ${i + 1}"></button>`).join('')}</div>`;
-  $('#avOpts').innerHTML = sel('h', 'Pelo') + sws('hc', 'Color de pelo') + sws('sk', 'Piel') + sel('tp', 'Ropa') + sws('sh', 'Color de la ropa') + sel('hat', 'Sombrero') + `<span class="bl hatc">Color del sombrero</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Gafas') + sel('fh', 'Cara');
+  const sel = (k, label) => `<span class="bl">${label}</span><select data-k="${k}" aria-label="${label}">${AV[k].map((o, i) => locked(k, i) ? '' : `<option value="${i}">${o[1]}${shopItem(k, i) ? ' ★' : ''}</option>`).join('')}</select>`;
+  const sws = (k, label) => `<span class="bl">${label}</span><div class="sws" role="group" aria-label="${label}">${AV[k].map((c, i) => locked(k, i) ? '' : `<button class="sw${shopItem(k, i) ? ' vip' : ''}" data-k="${k}" data-i="${i}" style="background:${hex(c)}" aria-label="${label} ${i + 1}"></button>`).join('')}</div>`;
+  G.av = ownAv(G.av);
+  $('#avOpts').innerHTML = sel('h', 'Pelo') + sws('hc', 'Color de pelo') + sws('sk', 'Piel') + sel('tp', 'Ropa') + sws('sh', 'Color de la ropa') + sel('hat', 'Sombrero') + `<span class="bl hatc">Color del sombrero</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Gafas') + sel('acc', 'Accesorio') + sel('fh', 'Cara');
   const hcGroup = $('#avOpts [data-k="hatc"]').parentElement; hcGroup.classList.add('hatc'); hcGroup.setAttribute('aria-label', 'Color del sombrero');
   document.querySelectorAll('#avOpts [data-k="hatc"]').forEach((el, i) => el.setAttribute('aria-label', 'Color del sombrero ' + (i + 1)));
   syncAvatarOpts();
-  $('#avOpts').addEventListener('change', e => { const k = e.target.dataset.k; if (!k) return; G.av[k] = +e.target.value; G.av = cleanAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
-  $('#avOpts').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; G.av[b.dataset.k] = +b.dataset.i; G.av = cleanAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
+  if (buildAvatarOpts.done) return; buildAvatarOpts.done = true;
+  $('#avOpts').addEventListener('change', e => { const k = e.target.dataset.k; if (!k) return; G.av[k] = +e.target.value; G.av = ownAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
+  $('#avOpts').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; G.av[b.dataset.k] = +b.dataset.i; G.av = ownAv(G.av); saveAv(); syncAvatarOpts(); rebuildPreview(); });
 }
 function syncAvatarOpts(){
   document.querySelectorAll('#avOpts select').forEach(el => el.value = G.av[el.dataset.k]);
   document.querySelectorAll('#avOpts .sw').forEach(el => el.setAttribute('aria-pressed', String(G.av[el.dataset.k] === +el.dataset.i)));
-  const hatOn = G.av.hat > 0;
+  const hatOn = G.av.hat > 0 || AV.acc[G.av.acc][0] === 'scarf';
   document.querySelectorAll('#avOpts .hatc').forEach(el => el.style.visibility = hatOn ? 'visible' : 'hidden');
 }
 
