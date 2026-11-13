@@ -83,6 +83,12 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .hc.pick:focus-visible{outline:2px solid var(--brass-hi);outline-offset:2px}
 .hc.sel{box-shadow:inset 0 0 0 3px var(--gold),0 0 12px rgba(240,204,106,.85);transform:translateY(-6px)}
 .handname .rec{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:2px}
+.cs.cover .hc{transition:rotate .45s cubic-bezier(.3,.7,.3,1.2);transform-style:preserve-3d}
+.cs.cover:not(.peek) .hc:not(.slot){rotate:y 180deg}
+.cs.cover .hc .r,.cs.cover .hc .s{backface-visibility:hidden}
+.cs.cover .hc:not(.slot)::after{content:"";position:absolute;inset:0;border-radius:inherit;transform:rotateY(180deg) translateZ(1px);backface-visibility:hidden;
+  background:repeating-linear-gradient(45deg,#3c6be0 0 3px,#1f3f9a 3px 6px);box-shadow:inset 0 0 0 3px var(--card)}
+.cs.cover:not(.peek){cursor:help}
 .hc.use{box-shadow:inset 0 0 0 3px #4fd88a,0 0 10px rgba(79,216,138,.75);transform:translateY(-3px)}
 @keyframes tin{from{transform:translateY(-8px);opacity:0}to{transform:none;opacity:1}}
 @keyframes tout{to{transform:translateY(-6px);opacity:0}}
@@ -345,6 +351,7 @@ html.inmenu .bottom > *{transition-delay:0s}
     <label for="helpT"><input type="checkbox" id="helpT" checked> AYUDA DE JUGADA</label>
     <label for="manualT"><input type="checkbox" id="manualT" checked> ELEGIR CARTAS A MANO</label>
     <label for="soundT"><input type="checkbox" id="soundT" checked> SONIDO</label>
+    <label for="hideT" id="hideL"><input type="checkbox" id="hideT" checked> TAPAR MIS CARTAS</label>
     <div class="row">
       <label for="fast" id="fastL"><input type="checkbox" id="fast"> BOTS RÁPIDOS</label>
       <button class="btn tiny" id="bHelp">¿CÓMO SE JUEGA?</button>
@@ -377,7 +384,7 @@ html.inmenu .bottom > *{transition-delay:0s}
             <div class="sect">OPCIONES</div>
             <label class="opt" for="optManual"><input type="checkbox" id="optManual"><span><b>Elegir mis cartas a mano</b><small>Tocas las 5 cartas de tu jugada. Desactivado, el juego usa siempre tu mejor jugada.</small></span></label>
             <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Ayuda de jugada</b><small>Muestra la jugada recomendada y tu probabilidad de ganar.</small></span></label>
-            <div class="optrow"><label class="chk" for="optSound"><input type="checkbox" id="optSound"> <b>Sonido</b></label><label class="chk" for="optAmb"><input type="checkbox" id="optAmb"> <b>Ambiente del casino</b></label></div>
+            <div class="optrow"><label class="chk" for="optSound"><input type="checkbox" id="optSound"> <b>Sonido</b></label><label class="chk" for="optAmb"><input type="checkbox" id="optAmb"> <b>Ambiente del casino</b></label><label class="chk" for="optHide" title="Solo en partidas online: tus 2 cartas boca abajo hasta que pases el ratón por encima"><input type="checkbox" id="optHide"> <b>Tapar mis cartas (online)</b></label></div>
             <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
           </div>
         </div>
@@ -718,7 +725,7 @@ function equity(hole, board, nOpp, iters){
 }
 
 /* ---------- state ---------- */
-const G = { av:{...{h:0, hc:1, sk:1, tp:0, sh:2, hat:0, hatc:1, gl:0, fh:0}}, manual:true, botPrefs:['rand','rand','rand','rand'], sel:new Set(), mode:'solo', help:true, actId:0, sbI:-1, bbI:-1, waitPlayers:false, seenHud:new Set(), myCore:new Set(), result:null, myStart:0, players:[], dealer:-1, deck:[], board:[], maxBet:0, minRaise:BB, street:'', hand:0,
+const G = { hide:true, peek:false, av:{...{h:0, hc:1, sk:1, tp:0, sh:2, hat:0, hatc:1, gl:0, fh:0}}, manual:true, botPrefs:['rand','rand','rand','rand'], sel:new Set(), mode:'solo', help:true, actId:0, sbI:-1, bbI:-1, waitPlayers:false, seenHud:new Set(), myCore:new Set(), result:null, myStart:0, players:[], dealer:-1, deck:[], board:[], maxBet:0, minRaise:BB, street:'', hand:0,
   turn:-1, waiting:null, handOver:false, running:false, hi:new Set(), banner:'', hintEq:null, fast:false, muck:[] };
 
 const PERS = [
@@ -1244,6 +1251,21 @@ function startAmbience(){
   };
   setTimeout(slot, 6000);
 }
+const coverMine = () => { const me = G.players[0]; return G.hide && G.mode !== 'solo' && !G.handOver && me && me.hole.length === 2 && !me.folded; };
+const PEEK = {dirty:false, x:0, y:0, over3d:false, overHud:false, ray:null};
+addEventListener('pointermove', e => { PEEK.x = e.clientX / innerWidth * 2 - 1; PEEK.y = -(e.clientY / innerHeight) * 2 + 1; PEEK.dirty = coverMine(); });
+function peekRay(){
+  const me = G.players[0]; const ms = me.hole.map(c => cardMeshes.get(key(c))).filter(Boolean);
+  if (!ms.length) return;
+  if (!PEEK.ray){ PEEK.ray = new THREE.Raycaster(); PEEK.ray.layers.enableAll(); }
+  PEEK.ray.setFromCamera({x:PEEK.x, y:PEEK.y}, camera);
+  const hit = PEEK.ray.intersectObjects(ms, false).length > 0;
+  if (hit !== PEEK.over3d){ PEEK.over3d = hit; setPeek(PEEK.over3d || PEEK.overHud); }
+}
+function setPeek(v){ if (G.peek === v) return; G.peek = v; $('#myCards').classList.toggle('peek', v); syncScene(); renderControls(); }
+function setHide(on){ G.hide = on; try { localStorage.setItem('mv-hide', on ? '1' : '0'); } catch(e){}
+  document.querySelectorAll('#hideT, #optHide').forEach(el => el.checked = on); render(); }
+try { G.hide = localStorage.getItem('mv-hide') !== '0'; } catch(e){}
 function setSound(on){ SFX.on = on; try { localStorage.setItem('mv-sound', on ? '1' : '0'); } catch(e){}
   if (SFX.out) SFX.out.gain.setTargetAtTime(on ? 0.8 : 0, now(), 0.05);
   document.querySelectorAll('#soundT, #optSound').forEach(el => el.checked = on); }
@@ -1577,6 +1599,11 @@ function setupMenu(){
   $('#manualT').onchange = e => setManual(e.target.checked);
   $('#soundT').checked = $('#optSound').checked = SFX.on; $('#optAmb').checked = SFX.ambOn;
   $('#soundT').onchange = e => setSound(e.target.checked);
+  $('#hideT').checked = $('#optHide').checked = G.hide;
+  $('#hideT').onchange = e => setHide(e.target.checked);
+  $('#optHide').onchange = e => setHide(e.target.checked);
+  $('#myCards').addEventListener('pointerenter', () => { PEEK.overHud = true; setPeek(true); });
+  $('#myCards').addEventListener('pointerleave', () => { PEEK.overHud = false; setPeek(PEEK.over3d); });
   $('#optSound').onchange = e => setSound(e.target.checked);
   $('#optAmb').onchange = e => setAmb(e.target.checked);
   $('#optManual').onchange = e => setManual(e.target.checked);
@@ -2035,7 +2062,7 @@ function syncScene(){
       if (p.folded && mi >= 0){ setCardTarget(c, muckPos(mi), new THREE.Euler(0, 0.3*mi, Math.PI)); return; }
       const hi = G.hi.has(key(c));
       if (i === 0){
-        setCardTarget(c, new V3(-0.13 + k*0.26, TOP + 0.003 + (hi ? 0.02 : 0), 0.7), new THREE.Euler(0, 0, (k ? -0.05 : 0.05) + (c.hid ? Math.PI : 0)));
+        setCardTarget(c, new V3(-0.13 + k*0.26, TOP + 0.003 + (hi ? 0.02 : 0), 0.7), new THREE.Euler(0, 0, (k ? -0.05 : 0.05) + (c.hid || (coverMine() && !G.peek) ? Math.PI : 0)));
       } else {
         const pos = toward(i, 0.4, (k-0.5)*0.22, TOP + 0.003 + k*0.003 + (hi ? 0.02 : 0));
         const yaw = Math.atan2(-seatPos(i).x, -seatPos(i).z);
@@ -2093,6 +2120,7 @@ function render(){
   G.myCore = new Set();
   if (!G.manual && G.help && !meP.folded && meP.hole.length === 2 && !meP.hole[0].hid && G.board.length >= 3){ const b = best(meP.hole.concat(G.board)); if (b.cat > 0) coreCards(b).forEach(c => G.myCore.add(key(c))); }
   $('#myCards').innerHTML = [0,1].map(i => hc(meP.hole[i], meP.folded)).join('');
+  $('#myCards').classList.toggle('cover', coverMine()); $('#hideL').hidden = G.mode === 'solo';
   $('#boardCards').innerHTML = [0,1,2,3,4].map(i => hc(G.board[i])).join('');
   const ORDER = ['preflop','flop','turn','river','showdown']; const cur = ORDER.indexOf(G.street);
   document.querySelectorAll('#streets span').forEach((el, i) => { el.className = i === cur ? 'on' : i < cur ? 'done' : ''; });
@@ -2173,7 +2201,7 @@ function renderControls(){
       if (!G.manual) hint = hint.replace('<div class="rec"><small>', '<div>').replace('</small></div>', '</div>');
     } else hint += `<div class="rec"><small>${describeHole(me.hole).toUpperCase()}${myTurn && G.hintEq != null ? ` · PROB. DE GANAR ${Math.round(G.hintEq*100)}%` : ''}</small></div>`;
   }
-  $('#hint').innerHTML = hint;
+  $('#hint').innerHTML = coverMine() && !G.peek && hint ? 'PASA EL RATÓN POR TUS CARTAS PARA VERLAS' : hint;
 }
 
 /* ---------- loop ---------- */
@@ -2214,6 +2242,7 @@ function frame(){
     if (dist < 0.0005 && m.quaternion.angleTo(u.tq) < 0.002){ m.position.copy(u.tp); m.quaternion.copy(u.tq); u.settled = true; }
   }
   if (moveCamera(step)) layoutTags();
+  if (PEEK.dirty){ PEEK.dirty = false; peekRay(); }
   dBtn.position.lerp(dTarget, 1 - Math.exp(-step*5));
   if (ring.visible) ring.material.opacity = 0.45 + Math.sin(t*4)*0.3;
   G.players.forEach((p, i) => { const s = seats[i]; if (s.person) animatePerson(s.person, t, {folded:p.folded, turn:G.turn === i, winT:s.person.winT}); });
