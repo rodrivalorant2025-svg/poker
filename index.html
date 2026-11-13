@@ -83,8 +83,10 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .hc.pick:focus-visible{outline:2px solid var(--brass-hi);outline-offset:2px}
 .hc.sel{box-shadow:inset 0 0 0 3px var(--gold),0 0 12px rgba(240,204,106,.85);transform:translateY(-6px)}
 .handname .rec{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:2px}
-.cs.cover .hc{transition:rotate .45s cubic-bezier(.3,.7,.3,1.2);transform-style:preserve-3d}
+.cs.cover .hc{transition:rotate .45s cubic-bezier(.3,.7,.3,1.2);transform-style:preserve-3d;box-sizing:border-box}
+.cs.cover .hc,.cs .hc{width:var(--cw);height:calc(var(--cw)*1.4);aspect-ratio:auto}
 .cs.cover:not(.peek) .hc:not(.slot){rotate:y 180deg}
+.cs.cover .hc.sel,.cs.cover .hc.pick:hover{transform:none}
 .cs.cover .hc .r,.cs.cover .hc .s{backface-visibility:hidden}
 .cs.cover .hc:not(.slot)::after{content:"";position:absolute;inset:0;border-radius:inherit;transform:rotateY(180deg) translateZ(1px);backface-visibility:hidden;
   background:repeating-linear-gradient(45deg,#3c6be0 0 3px,#1f3f9a 3px 6px);box-shadow:inset 0 0 0 3px var(--card)}
@@ -1255,8 +1257,11 @@ const coverMine = () => { const me = G.players[0]; return G.hide && G.mode !== '
 const PEEK = {dirty:false, x:0, y:0, over3d:false, overHud:false, ray:null};
 addEventListener('pointermove', e => { PEEK.x = e.clientX / innerWidth * 2 - 1; PEEK.y = -(e.clientY / innerHeight) * 2 + 1; PEEK.dirty = coverMine(); });
 function peekRay(){
-  const me = G.players[0]; const ms = me.hole.map(c => cardMeshes.get(key(c))).filter(Boolean);
-  if (!ms.length) return;
+  if (!PEEK.box){
+    PEEK.box = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.06, 0.34), new THREE.MeshBasicMaterial());
+    PEEK.box.position.set(0, TOP + 0.02, 0.7); PEEK.box.visible = false; PEEK.box.updateMatrixWorld(true);
+  }
+  const ms = [PEEK.box];
   if (!PEEK.ray){ PEEK.ray = new THREE.Raycaster(); PEEK.ray.layers.enableAll(); }
   PEEK.ray.setFromCamera({x:PEEK.x, y:PEEK.y}, camera);
   const hit = PEEK.ray.intersectObjects(ms, false).length > 0;
@@ -1602,8 +1607,9 @@ function setupMenu(){
   $('#hideT').checked = $('#optHide').checked = G.hide;
   $('#hideT').onchange = e => setHide(e.target.checked);
   $('#optHide').onchange = e => setHide(e.target.checked);
-  $('#myCards').addEventListener('pointerenter', () => { PEEK.overHud = true; setPeek(true); });
-  $('#myCards').addEventListener('pointerleave', () => { PEEK.overHud = false; setPeek(PEEK.over3d); });
+  const handBox = $('#myCards').closest('.grp');
+  handBox.addEventListener('pointerenter', () => { clearTimeout(PEEK.t); PEEK.overHud = true; setPeek(true); });
+  handBox.addEventListener('pointerleave', () => { PEEK.overHud = false; clearTimeout(PEEK.t); PEEK.t = setTimeout(() => setPeek(PEEK.over3d || PEEK.overHud), 120); });
   $('#optSound').onchange = e => setSound(e.target.checked);
   $('#optAmb').onchange = e => setAmb(e.target.checked);
   $('#optManual').onchange = e => setManual(e.target.checked);
