@@ -160,7 +160,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 .hc.hi{box-shadow:inset 0 0 0 2px var(--brass),0 0 10px rgba(240,204,106,.7);transform:translateY(-3px)}
 .hc.new{animation:flip .3s ease-out}
 @keyframes flip{from{transform:scaleX(0)}to{transform:none}}
-.handname{font-family:var(--f-title);font-weight:800;font-size:14px;color:var(--gold);text-align:center;min-height:1.2em;letter-spacing:.05em}
+.handname{font-family:var(--f-title);font-weight:800;font-size:14px;color:var(--gold);text-align:center;min-height:2.5em;display:flex;flex-direction:column;justify-content:center;letter-spacing:.05em}
 .handname small{font-family:var(--f-ui);color:var(--txt);font-size:12px;font-weight:500}
 
 /* info */
@@ -1253,7 +1253,7 @@ function startAmbience(){
   };
   setTimeout(slot, 6000);
 }
-const coverMine = () => { const me = G.players[0]; return G.hide && G.mode !== 'solo' && !G.handOver && me && me.hole.length === 2 && !me.folded; };
+const coverMine = () => { const me = G.players[0]; return G.hide && G.mode !== 'solo' && !G.handOver && me && me.hole.length > 0 && !me.folded; };
 const PEEK = {dirty:false, x:0, y:0, over3d:false, overHud:false, ray:null};
 addEventListener('pointermove', e => { PEEK.x = e.clientX / innerWidth * 2 - 1; PEEK.y = -(e.clientY / innerHeight) * 2 + 1; PEEK.dirty = coverMine(); });
 function peekRay(){
