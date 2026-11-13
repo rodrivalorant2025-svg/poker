@@ -7,4 +7,4 @@ Texas Hold'em en 3D con dinero ficticio, para navegador de PC.
 - Puedes elegir tú las 5 cartas de tu jugada o dejar que el juego use siempre la mejor.
 - Sin fichas no se juega: puedes pedir un préstamo al casino, y lo que ganes va primero a pagar la deuda.
 
-La partida online conecta los navegadores directamente con [PeerJS](https://peerjs.com/): quien crea la mesa reparte y los demás se conectan a él. Las cartas de cada jugador viajan cifradas solo para él.
+La partida online usa un servidor público de mensajes MQTT (por WebSocket seguro): cada jugador solo se conecta a ese servidor, así que funciona aunque los routers bloqueen las conexiones directas. Si un servidor no responde se prueba otro. Las cartas de cada jugador viajan cifradas solo para él.

@@ -451,98 +451,121 @@ html.inmenu .bottom > *{transition-delay:0s}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
-/* PeerJS stand-in for the room capability: the table creator's browser is the hub,
-   everyone else connects to it directly with the table code. No accounts needed. */
-function makePeerRoom(){
-  const PREFIX = 'lmv-';
-  // STUN finds a direct route; TURN relays traffic when two networks can't reach each other
-  const OPTS = {debug:1, config:{iceServers:[
-    {urls:['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302']},
-    {urls:['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username:'peerjs', credential:'peerjsp'},
-    {urls:['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username:'openrelayproject', credential:'openrelayproject'},
-  ]}};
+/* Online tables through a public MQTT relay (WebSocket over TLS).
+   Every player only talks to the relay, so no direct browser-to-browser link is needed:
+   works behind routers and wifi that block peer-to-peer. Each player keeps one retained
+   "presence" message on the table's topic; the broker removes it (last will) if they drop. */
+function makeMqttRoom(){
+  const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081/mqtt'];
+  const BASE = 'lowpolypoker1';
+  const STALE = 45000, BEAT = 15000;
   const noop = () => {};
-  function mkRoom(name, peer, isHost, hostConn){
+  const rid = () => 'c' + Math.random().toString(36).slice(2, 12);
+  const td = new TextDecoder();
+
+  function connect(url, myTopic){
+    return new Promise((res, rej) => {
+      let done = false;
+      const c = mqtt.connect(url, {clientId:rid(), clean:true, keepalive:30, reconnectPeriod:2500, connectTimeout:7000,
+        will:{topic:myTopic, payload:'', retain:true, qos:0}});
+      const t = setTimeout(() => { if (!done){ done = true; try { c.end(true); } catch(e){} rej({code:'servidor'}); } }, 8000);
+      c.once('connect', () => { if (done) return; done = true; clearTimeout(t); res(c); });
+      c.on('error', () => {});
+    });
+  }
+
+  function mkRoom(name, client, myId, topicOf){
     const handlers = []; let roster = new Map(); let arr = Object.freeze([]); let mine = {};
-    const conns = new Map(); let sendT = null;
-    const myId = peer.id;
+    let pubT = null, beat = null, prune = null, left = false, lastMine = '';
     function build(){
       const out = [];
-      for (const [id, presence] of roster) out.push(Object.freeze({peer:id, by:null, isMe:id === myId, sameTab:id === myId, kind:'viewer', guest:false, presence, updatedAt:Date.now()}));
+      for (const [id, e] of roster) out.push(Object.freeze({peer:id, by:null, isMe:id === myId, sameTab:id === myId, kind:'viewer', guest:false, presence:e.p, updatedAt:e.at}));
       return Object.freeze(out);
     }
-    function setRoster(next){
-      const old = roster;
-      for (const [k, v] of next){ const o = old.get(k); if (o && JSON.stringify(o) === JSON.stringify(v)) next.set(k, o); }
-      roster = next;
+    function emit(old){
       const prev = arr; arr = build();
-      const joined = arr.filter(p => !old.has(p.peer)), left = prev.filter(p => !roster.has(p.peer));
-      const updated = arr.filter(p => old.has(p.peer) && old.get(p.peer) !== roster.get(p.peer));
-      if (joined.length || left.length || updated.length) handlers.forEach(h => { try { h({peers:arr, joined, left, updated}); } catch(e){ console.error(e); } });
+      const joined = arr.filter(p => !old.has(p.peer)), gone = prev.filter(p => !roster.has(p.peer));
+      const updated = arr.filter(p => old.has(p.peer) && old.get(p.peer).p !== roster.get(p.peer).p);
+      if (joined.length || gone.length || updated.length) handlers.forEach(h => { try { h({peers:arr, joined, left:gone, updated}); } catch(e){ console.error(e); } });
     }
-    function shareRoster(){
-      if (!isHost || sendT) return;
-      sendT = setTimeout(() => { sendT = null; const list = [...roster].map(([id, p]) => [id, p]); for (const c of conns.values()) if (c.open) c.send({type:'roster', list}); }, 40);
+    function setEntry(id, p){
+      const old = new Map(roster);
+      if (p == null) roster.delete(id);
+      else {
+        const prev = roster.get(id);
+        if (prev && JSON.stringify(prev.p) === JSON.stringify(p)){ prev.seen = Date.now(); return; }
+        roster.set(id, {p:Object.freeze(p), at:Date.now(), seen:Date.now()});
+      }
+      emit(old);
     }
-    if (isHost){
-      peer.on('connection', c => {
-        c.on('open', () => { conns.set(c.peer, c); });
-        c.on('data', m => { if (m && m.type === 'pres' && m.presence && typeof m.presence === 'object'){ const n = new Map(roster); n.set(c.peer, Object.freeze(m.presence)); setRoster(n); shareRoster(); } });
-        const gone = () => { conns.delete(c.peer); if (roster.has(c.peer)){ const n = new Map(roster); n.delete(c.peer); setRoster(n); shareRoster(); } };
-        c.on('close', gone); c.on('error', gone);
-      });
-    } else {
-      hostConn.on('data', m => { if (m && m.type === 'roster' && Array.isArray(m.list)) setRoster(new Map(m.list.map(([id, p]) => [String(id), Object.freeze(p || {})]))); });
-      const lost = () => { setRoster(new Map([[myId, Object.freeze(mine)]])); };
-      hostConn.on('close', lost); hostConn.on('error', lost);
-    }
+    client.on('message', (topic, payload) => {
+      if (left) return;
+      const id = topic.slice(topic.lastIndexOf('/') + 1);
+      if (!/^c[a-z0-9]{6,16}$/.test(id) || id === myId) return;
+      if (!payload || !payload.length){ setEntry(id, null); return; }
+      if (payload.length > 65536) return;
+      let m; try { m = JSON.parse(td.decode(payload)); } catch(e){ return; }
+      if (!m || typeof m !== 'object' || typeof m.p !== 'object' || !m.p) return;
+      if (Date.now() - (+m.t || 0) > STALE) return;            // a table left behind long ago
+      setEntry(id, m.p);
+    });
+    const send = () => { pubT = null; if (!left) client.publish(topicOf(myId), JSON.stringify({p:mine, t:Date.now()}), {retain:true, qos:0}); };
+    client.on('connect', () => { if (!left) send(); });         // re-announce after a reconnection
+    beat = setInterval(send, BEAT);
+    prune = setInterval(() => {                                   // drop players whose heartbeat stopped
+      const now = Date.now(); let ch = false; const old = new Map(roster);
+      for (const [id, e] of roster) if (id !== myId && now - e.seen > STALE){ roster.delete(id); ch = true; }
+      if (ch) emit(old);
+    }, 5000);
     return {
       name,
       presence(patch){
         for (const k in patch){ if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; }
-        const snap = JSON.parse(JSON.stringify(mine));
-        if (isHost){ const n = new Map(roster); n.set(myId, Object.freeze(snap)); setRoster(n); shareRoster(); }
-        else if (hostConn.open) hostConn.send({type:'pres', presence:snap});
+        const txt = JSON.stringify(mine);
+        if (txt === lastMine) return Promise.resolve();          // nothing changed: no echo, no message
+        lastMine = txt;
+        const snap = JSON.parse(txt);
+        setTimeout(() => { if (left) return; const old = new Map(roster); roster.set(myId, {p:Object.freeze(snap), at:Date.now(), seen:Date.now()}); emit(old); }, 0);
+        if (!pubT) pubT = setTimeout(send, 70);                  // coalesce bursts into one message
         return Promise.resolve();
       },
       peers(){ return arr; },
       onPeers(fn){ handlers.push(fn); setTimeout(() => fn({peers:arr, joined:arr, left:[], updated:[]}), 0); return () => { const i = handlers.indexOf(fn); if (i >= 0) handlers.splice(i, 1); }; },
       emit(){ return Promise.resolve(); }, on(){ return noop; },
-      connected(){ return !peer.disconnected; }, onConnection(fn){ setTimeout(() => fn(true), 0); return noop; },
-      leave(){ try { peer.destroy(); } catch(e){} return Promise.resolve(); },
+      connected(){ return client.connected; }, onConnection(fn){ setTimeout(() => fn(client.connected), 0); return noop; },
+      leave(){ left = true; clearInterval(beat); clearInterval(prune); try { client.publish(topicOf(myId), '', {retain:true, qos:0}, () => client.end()); } catch(e){} return Promise.resolve(); },
     };
   }
-  function openPeer(id){
-    return new Promise((res, rej) => {
-      const peer = id ? new Peer(id, OPTS) : new Peer(OPTS);
-      const t = setTimeout(() => rej({code:'servidor'}), 15000);
-      peer.on('open', () => { clearTimeout(t); res(peer); });
-      peer.on('error', e => { clearTimeout(t); rej({code:e && e.type || 'error'}); });
-      // keep the table reachable: if the link to the signalling server drops (idle or background tab), reconnect
-      peer.on('disconnected', () => { setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch(err){} }, 1500); });
-    });
+
+  async function openTable(code, host){
+    const filter = `${BASE}/${code}/+`;
+    const myId = rid();
+    const topicOf = id => `${BASE}/${code}/${id}`;
+    let lastErr = {code:'servidor'};
+    for (const url of BROKERS){
+      let client;
+      try { client = await connect(url, topicOf(myId)); } catch(e){ lastErr = e; continue; }
+      const room = mkRoom(code, client, myId, topicOf);
+      await new Promise(r => client.subscribe(filter, {qos:0}, () => r()));
+      if (host) return room;
+      // a guest looks for the table's host on this relay; if it isn't here, try the next one
+      const found = await new Promise(r => {
+        const t = setTimeout(() => { off(); r(false); }, 4500);
+        const off = room.onPeers(ch => { if (ch.peers.some(p => !p.sameTab && p.presence && p.presence.role === 'host')){ clearTimeout(t); off(); r(true); } });
+      });
+      if (found) return room;
+      await room.leave();
+      lastErr = {code:'mesa-no-encontrada'};
+    }
+    throw lastErr;
   }
+
   return {
     lobbyless: true,
     presence(){ return Promise.resolve(); }, peers(){ return []; }, onPeers(){ return noop; },
-    async join(name, opts){
-      if (opts && opts.host){
-        const peer = await openPeer(PREFIX + name);
-        return mkRoom(name, peer, true, null);
-      }
-      const peer = await openPeer(null);
-      const conn = await new Promise((resolve, reject) => {
-        const res = v => resolve(v), rej = e => { try { peer.destroy(); } catch(err){} reject(e); };   // a failed attempt leaves no ghost connection
-        const c = peer.connect(PREFIX + name, {reliable:true});
-        const t = setTimeout(() => rej({code:'sin-conexion'}), 25000);
-        c.on('open', () => { clearTimeout(t); res(c); });
-        c.on('error', () => { clearTimeout(t); rej({code:'sin-conexion'}); });
-        peer.on('error', e => { clearTimeout(t); rej({code:e && e.type === 'peer-unavailable' ? 'mesa-no-encontrada' : (e && e.type || 'error')}); });
-      });
-      return mkRoom(name, peer, false, conn);
-    },
+    join(name, opts){ return openTable(name, !!(opts && opts.host)); },
   };
 }
 </script>
@@ -555,7 +578,7 @@ const RS = r => ({11:'J',12:'Q',13:'K',14:'A'})[r] || String(r);
 const ONE = {14:'as',13:'rey',12:'reina',11:'jota'};
 const one = r => ONE[r] || String(r);
 const PL = {2:'doses',3:'treses',4:'cuatros',5:'cincos',6:'seises',7:'sietes',8:'ochos',9:'nueves',10:'dieces',11:'jotas',12:'reinas',13:'reyes',14:'ases'};
-const key = c => c.hid || (c.r + '-' + c.s);
+const key = c => c.hid || c.mk || (c.r + '-' + c.s);
 const fmt = n => '$' + n.toLocaleString('es-ES');
 const cardTxt = c => RS(c.r) + SUITS[c.s];
 
@@ -695,7 +718,7 @@ function equity(hole, board, nOpp, iters){
 }
 
 /* ---------- state ---------- */
-const G = { av:{...{h:0, hc:1, sk:1, sh:2, hat:0, hatc:1, gl:0, fh:0}}, manual:true, botPrefs:['rand','rand','rand','rand'], sel:new Set(), mode:'solo', help:true, actId:0, sbI:-1, bbI:-1, waitPlayers:false, seenHud:new Set(), myCore:new Set(), result:null, myStart:0, players:[], dealer:-1, deck:[], board:[], maxBet:0, minRaise:BB, street:'', hand:0,
+const G = { av:{...{h:0, hc:1, sk:1, tp:0, sh:2, hat:0, hatc:1, gl:0, fh:0}}, manual:true, botPrefs:['rand','rand','rand','rand'], sel:new Set(), mode:'solo', help:true, actId:0, sbI:-1, bbI:-1, waitPlayers:false, seenHud:new Set(), myCore:new Set(), result:null, myStart:0, players:[], dealer:-1, deck:[], board:[], maxBet:0, minRaise:BB, street:'', hand:0,
   turn:-1, waiting:null, handOver:false, running:false, hi:new Set(), banner:'', hintEq:null, fast:false, muck:[] };
 
 const PERS = [
@@ -921,8 +944,9 @@ function showResult(){
   const box = $('#result'); box.className = 'result panel ' + (net > 0 ? 'good' : net < 0 ? 'bad' : 'even');
   let title = net > 0 ? `¡HAS GANADO ${fmt(net)}!` : net < 0 ? `HAS PERDIDO ${fmt(-net)}` : (me.folded ? 'NO HAS PERDIDO NADA' : 'RECUPERAS LO QUE APOSTASTE');
   const nameOf = p => p !== me ? (p.kind === 'bot' ? cap(who(p)) : p.name) : 'Tú';
-  const cardsOf = p => { if (!p.best) return ''; const core = new Set(coreCards(p.best).map(key));
-    return `<div class="rc"><span class="rk">${p !== me ? `Cartas de ${esc(nameOf(p))}` : 'Tus cartas'}</span>${p.hole.map(c => mini(c, core.has(key(c)))).join('')}<span class="rk">Jugada</span>${p.best.cards.map(c => mini(c, core.has(key(c)))).join('')}</div>`; };
+  const rs = c => c.r + '-' + c.s;
+  const cardsOf = p => { if (!p.best) return ''; const core = new Set(coreCards(p.best).map(rs));
+    return `<div class="rc"><span class="rk">${p !== me ? `Cartas de ${esc(nameOf(p))}` : 'Tus cartas'}</span>${p.hole.map(c => mini(c, core.has(rs(c)))).join('')}<span class="rk">Jugada</span>${p.best.cards.map(c => mini(c, core.has(rs(c)))).join('')}</div>`; };
   const potLine = (pt, label) => {
     const ws = pt.ws;
     if (ws.length > 1){
@@ -1246,15 +1270,16 @@ const AV = {
   h:   [['short','Corto'], ['long','Largo'], ['bun','Moño'], ['slick','Engominado'], ['bald','Calvo']],
   hc:  [0x1a1210, 0x3b2414, 0x6b4a2a, 0x8a3b1c, 0xc9a050, 0xd8d2c8, 0x2b4a9a, 0xc02a6a],
   sk:  [0xf3d0b5, 0xe8c09a, 0xd2a07a, 0xb98159, 0x8d5a3b, 0x5e3a24],
+  tp:  [['tee','Camiseta'], ['suit','Traje'], ['hoodie','Sudadera'], ['vest','Chaleco']],
   sh:  [0xb3202a, 0x2f7d5b, 0x2b4a9a, 0x1e2a44, 0xe0b82e, 0x7a2b5a, 0xc7702c, 0x4f6b73, 0xf1ece2, 0x222228],
   hat: [['', 'Ninguno'], ['cap', 'Gorra'], ['cowboy', 'Vaquero'], ['beanie', 'Gorro de lana']],
   hatc:[0x6b4a2b, 0xb03030, 0x2b6cb0, 0x2f7d5b, 0x222228, 0xe0b82e, 0x7a2633],
   gl:  [['', 'Ninguna'], ['glasses', 'Gafas'], ['shades', 'Gafas de sol']],
   fh:  [['', 'Nada'], ['stache', 'Bigote'], ['beard', 'Barba']],
 };
-const AV_DEFAULT = {h:0, hc:1, sk:1, sh:2, hat:0, hatc:1, gl:0, fh:0};
+const AV_DEFAULT = {h:0, hc:1, sk:1, tp:0, sh:2, hat:0, hatc:1, gl:0, fh:0};
 function cleanAv(a){ const o = {}; for (const k in AV_DEFAULT){ const n = Math.floor(+((a || {})[k])); o[k] = Number.isFinite(n) ? Math.max(0, Math.min(AV[k].length - 1, n)) : AV_DEFAULT[k]; } return o; }
-function lookFromAv(a){ a = cleanAv(a); return {hair:AV.h[a.h][0], hairC:AV.hc[a.hc], skin:AV.sk[a.sk], shirt:AV.sh[a.sh], hat:AV.hat[a.hat][0] || undefined, hatC:AV.hatc[a.hatc], glasses:AV.gl[a.gl][0] || undefined, stache:a.fh === 1, beard:a.fh === 2}; }
+function lookFromAv(a){ a = cleanAv(a); return {hair:AV.h[a.h][0], hairC:AV.hc[a.hc], skin:AV.sk[a.sk], shirt:AV.sh[a.sh], top:AV.tp[a.tp][0], hat:AV.hat[a.hat][0] || undefined, hatC:AV.hatc[a.hatc], glasses:AV.gl[a.gl][0] || undefined, stache:a.fh === 1, beard:a.fh === 2}; }
 const esc = t => String(t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const NET = { room:null, table:null, code:'', tableName:'', myPeer:null, seated:false, answered:-1, turnAi:-1, lastS:null, myHoleE:'', myHole:[], hostPub:'', hadHost:false };
 function celebrate(){ G.players.forEach((p, i) => { if (p.win && seats[i] && seats[i].person) seats[i].person.winT = clock.elapsedTime; }); }
@@ -1449,9 +1474,10 @@ async function applyState(S){
     const kind = v === 0 && mySeat >= 0 ? 'me' : ({h:'remote', r:'remote', b:'bot', e:'empty'})[q.k] || 'empty';
     const lk = POOL[q.lk];
     let hole;
-    if (q.sh) hole = decodes(q.sh);
-    else if (v === 0 && mySeat >= 0 && NET.myHole.length === 2) hole = NET.myHole;
-    else hole = Array.from({length:Math.min(2, +q.hc || 0)}, (_, k) => ({r:0, s:0, hid:`x${S.h}-${abs}-${k}`}));
+    const slot = k => `x${S.h}-${abs}-${k}`;
+    if (q.sh) hole = decodes(q.sh).map((c, k) => ({...c, mk:slot(k)}));
+    else if (v === 0 && mySeat >= 0 && NET.myHole.length === 2) hole = NET.myHole.map((c, k) => ({r:c.r, s:c.s, mk:slot(k)}));
+    else hole = Array.from({length:Math.min(2, +q.hc || 0)}, (_, k) => ({r:0, s:0, hid:slot(k)}));
     const av = q.av ? cleanAv(q.av) : null;
     ps.push({name:kind === 'bot' && lk ? lk.name : cleanName(q.n), kind, isBot:kind === 'bot', avSig:av ? JSON.stringify(av) : '', look:kind === 'bot' && lk ? lk.look : av ? lookFromAv(av) : HUMAN_LOOKS[abs % HUMAN_LOOKS.length],
       chips:+q.c || 0, s0:+q.s0 || 0, bet:+q.b || 0, total:+q.t || 0, folded:!!q.f, allIn:!!q.a, out:!!q.o, last:String(q.l || '').slice(0, 24),
@@ -1467,6 +1493,7 @@ async function applyState(S){
       returns:(Array.isArray(S.rs.r) ? S.rs.r : []).map(([i, amt]) => ({p:ps[V(i)], amt:+amt || 0})).filter(x => x.p)};
     const used = p => { const cs = decodes(p.bc); return cs.length === 5 ? evalPick(cs) : (p.hole.length === 2 && !p.hole[0].hid && G.board.length === 5 ? best(p.hole.concat(G.board)) : null); };
     if (!G.result.byFold) G.result.winners.forEach(w => { w.p.best = used(w.p); if (w.p.best) coreCards(w.p.best).forEach(c => G.hi.add(key(c))); });
+    ps.forEach(p => p.hole.forEach(c => { if (c.mk && G.hi.has(c.r + '-' + c.s)) G.hi.add(c.mk); }));
     const me = ps[0]; if (!me.folded && me.hole.length === 2 && !me.hole[0].hid && G.board.length === 5){ me.best = used(me); me.autoBest = best(me.hole.concat(G.board)); }
   }
   if (mySeat >= 0 && S.tu === mySeat && !G.handOver && S.ai !== NET.answered){
@@ -1511,7 +1538,7 @@ async function startOnline(fn){
   btns.forEach(b => { b.disabled = true; b.textContent = 'CONECTANDO…'; });
   $('#netErr').hidden = true;
   try { saveName(); await fn(); setMenu(false); }
-  catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'No hay ninguna mesa abierta con ese código. Quien la creó tiene que seguir con la página del juego abierta: si la cierra, la recarga o abre el enlace en esa misma pestaña, la mesa desaparece y hay que crear otra.' : e && e.code === 'sin-conexion' ? 'La mesa existe, pero no se pudo conectar con ella. Suele pasar con cortafuegos estrictos (wifi del trabajo o del instituto, algunas redes móviles). Prueba con otra red o vuelve a intentarlo.' : e && ['servidor','network','server-error','socket-error','socket-closed'].includes(e.code) ? 'No se pudo contactar con el servidor de mesas. Revisa tu conexión a internet e inténtalo de nuevo.' : e && e.code === 'unavailable-id' ? 'Ese código ya está en uso. Vuelve a intentarlo.' : 'No se pudo conectar (' + (e && e.code || 'error') + '). Inténtalo de nuevo.'; $('#netErr').hidden = false; }
+  catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'No hay ninguna mesa abierta con ese código. Quien la creó tiene que seguir con la página del juego abierta: si la cierra, la recarga o abre el enlace en esa misma pestaña, la mesa desaparece y hay que crear otra.' : e && e.code === 'sin-conexion' ? 'La mesa existe, pero no se pudo conectar con ella. Suele pasar con cortafuegos estrictos (wifi del trabajo o del instituto, algunas redes móviles). Prueba con otra red o vuelve a intentarlo.' : e && e.code === 'servidor' ? 'No se pudo contactar con ningún servidor de mesas. Algunas redes (wifi del instituto o del trabajo) bloquean estas conexiones: prueba con otra red o con los datos del móvil.' : e && e.code === 'unavailable-id' ? 'Ese código ya está en uso. Vuelve a intentarlo.' : 'No se pudo conectar (' + (e && e.code || 'error') + '). Inténtalo de nuevo.'; $('#netErr').hidden = false; }
   finally { connecting = false; btns.forEach((b, k) => { b.disabled = false; b.textContent = labels[k]; }); }
 }
 function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); } catch(e){} }
@@ -1570,7 +1597,7 @@ function setupMenu(){
   };
   $('#bJoinCode').onclick = () => { const c = $('#codeIn').value.trim().toLowerCase(); if (/^[a-z0-9][a-z0-9_.-]{0,47}$/.test(c)) startOnline(() => clientJoin(c)); else { $('#netErr').textContent = 'Escribe un código válido, por ejemplo mesa-ab12c.'; $('#netErr').hidden = false; } };
   $('#bLeave').onclick = () => location.reload();
-  const use = Promise.resolve(window.Peer ? makePeerRoom() : null);
+  const use = Promise.resolve(window.mqtt ? makeMqttRoom() : null);
   use.then(room => {
     if (!room){ $('#onlineOff').textContent = 'No se pudo cargar el modo online (revisa tu conexión). Puedes jugar solo contra bots.'; return; }
     NET.room = room;
@@ -1721,7 +1748,7 @@ const GEO = {
 };
 function makePerson(look, standing){
   const g = new THREE.Group();
-  const skin = flat(look.skin), shirt = flat(look.shirt), hairM = flat(look.hairC ?? 0x222222), legM = flat(0x1d1d2a);
+  const skin = flat(look.skin), shirt = flat(look.top === 'vest' ? 0xf1ece2 : look.shirt), hairM = flat(look.hairC ?? 0x222222), legM = flat(look.top === 'suit' ? look.shirt : 0x1d1d2a);
   const yB = standing ? 0.95 : 0.52;
   const parts = {};
   for (const sx of [-0.1, 0.1]){
@@ -1731,6 +1758,21 @@ function makePerson(look, standing){
   const torso = new THREE.Group(); torso.position.y = yB; g.add(torso); parts.torso = torso;
   const chest = M(GEO.chest, shirt); chest.position.y = 0.33; torso.add(chest);
   const sh = M(GEO.shoulders, shirt); sh.scale.set(1.25, 0.55, 0.85); sh.position.y = 0.62; torso.add(sh);
+  // clothing styles for online avatars (bots and the croupier have no look.top)
+  if (look.top === 'suit'){
+    const front = M(new THREE.BoxGeometry(0.11, 0.4, 0.02), flat(0xf4f1ea)); front.position.set(0, 0.44, 0.185); front.rotation.x = -0.06; torso.add(front);
+    const tie = M(new THREE.BoxGeometry(0.045, 0.3, 0.02), flat(0x8a1a22)); tie.position.set(0, 0.46, 0.198); tie.rotation.x = -0.06; torso.add(tie);
+    const knot = M(new THREE.BoxGeometry(0.06, 0.045, 0.03), flat(0x8a1a22)); knot.position.set(0, 0.62, 0.19); torso.add(knot);
+    for (const sx of [-1, 1]){ const lap = M(new THREE.BoxGeometry(0.035, 0.26, 0.02), flat(look.shirt)); lap.position.set(sx * 0.075, 0.5, 0.2); lap.rotation.z = sx * 0.28; torso.add(lap); }
+  } else if (look.top === 'hoodie'){
+    const hood = M(new THREE.SphereGeometry(0.17, 7, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), shirt); hood.position.set(0, 0.66, -0.11); hood.rotation.x = -1.2; hood.scale.set(1.1, 1, 0.9); torso.add(hood);
+    const pocket = M(new THREE.BoxGeometry(0.26, 0.11, 0.02), shirt); pocket.position.set(0, 0.16, 0.19); torso.add(pocket);
+    for (const sx of [-1, 1]){ const cord = M(new THREE.BoxGeometry(0.012, 0.13, 0.012), flat(0xf4f1ea)); cord.position.set(sx * 0.04, 0.6, 0.19); torso.add(cord); }
+  } else if (look.top === 'vest'){
+    const v = M(new THREE.CylinderGeometry(0.218, 0.198, 0.52, 9, 1, true, -Math.PI*0.86, Math.PI*1.72), Object.assign(new THREE.MeshLambertMaterial({color:look.shirt, side:THREE.DoubleSide}), {userData:{flat:true}}));
+    v.position.y = 0.3; v.rotation.y = Math.PI; torso.add(v);
+    const bow = M(new THREE.BoxGeometry(0.1, 0.045, 0.03), flat(0x15151f)); bow.position.set(0, 0.64, 0.17); torso.add(bow);
+  }
   if (standing){
     const vest = M(new THREE.CylinderGeometry(0.216, 0.196, 0.5, 7, 1, true, -Math.PI*0.75, Math.PI*1.5), Object.assign(new THREE.MeshLambertMaterial({color:0x15151f, side:THREE.DoubleSide}), {userData:{flat:true}}));
     vest.position.y = 0.3; vest.rotation.y = Math.PI; torso.add(vest);
@@ -1872,7 +1914,7 @@ const deckMesh = M(new THREE.BoxGeometry(CW, 0.05, CH), [edgeMat, edgeMat, backM
 deckMesh.position.copy(DECK_POS).add(new V3(0, -0.005, 0)); scene.add(deckMesh);
 const faceTexCache = {};
 function faceTex(c){
-  const k = key(c); if (faceTexCache[k]) return faceTexCache[k];
+  const k = c.r + '-' + c.s; if (faceTexCache[k]) return faceTexCache[k];
   const red = c.s === 1 || c.s === 2;
   return faceTexCache[k] = canvasTex(256, 360, (x, w, h) => {
     x.scale(2, 2); w /= 2; h /= 2;
@@ -1893,7 +1935,12 @@ function getCardMesh(c){
     m = M(cardGeo, [edgeMat, edgeMat, fm, backMat, edgeMat, edgeMat]);
     m.position.copy(DECK_POS); m.quaternion.setFromEuler(new THREE.Euler(0, 0, Math.PI));
     m.userData = {key:k, base: DECK_POS.clone(), tp: DECK_POS.clone(), tq: new THREE.Quaternion(), fm, launched:false, settled:false};
+    m.userData.face = c.hid ? '' : c.r + '-' + c.s;
     scene.add(m); cardMeshes.set(k, m);
+  } else if (!c.hid && m.userData.face !== c.r + '-' + c.s){
+    // the card was known only as "hidden" until now: give it its real face, keep the same 3D card (it just turns over)
+    m.userData.face = c.r + '-' + c.s;
+    const fm = m.userData.fm; fm.map = fm.emissiveMap = faceTex(c); fm.needsUpdate = true;
   }
   return m;
 }
@@ -1988,7 +2035,7 @@ function syncScene(){
       if (p.folded && mi >= 0){ setCardTarget(c, muckPos(mi), new THREE.Euler(0, 0.3*mi, Math.PI)); return; }
       const hi = G.hi.has(key(c));
       if (i === 0){
-        setCardTarget(c, new V3(-0.13 + k*0.26, TOP + 0.003 + (hi ? 0.02 : 0), 0.7), new THREE.Euler(0, 0, k ? -0.05 : 0.05));
+        setCardTarget(c, new V3(-0.13 + k*0.26, TOP + 0.003 + (hi ? 0.02 : 0), 0.7), new THREE.Euler(0, 0, (k ? -0.05 : 0.05) + (c.hid ? Math.PI : 0)));
       } else {
         const pos = toward(i, 0.4, (k-0.5)*0.22, TOP + 0.003 + k*0.003 + (hi ? 0.02 : 0));
         const yaw = Math.atan2(-seatPos(i).x, -seatPos(i).z);
@@ -2208,7 +2255,7 @@ function buildAvatarOpts(){
   const hex = c => '#' + c.toString(16).padStart(6, '0');
   const sel = (k, label) => `<span class="bl">${label}</span><select data-k="${k}" aria-label="${label}">${AV[k].map((o, i) => `<option value="${i}">${o[1]}</option>`).join('')}</select>`;
   const sws = (k, label) => `<span class="bl">${label}</span><div class="sws" role="group" aria-label="${label}">${AV[k].map((c, i) => `<button class="sw" data-k="${k}" data-i="${i}" style="background:${hex(c)}" aria-label="${label} ${i + 1}"></button>`).join('')}</div>`;
-  $('#avOpts').innerHTML = sel('h', 'Pelo') + sws('hc', 'Color de pelo') + sws('sk', 'Piel') + sws('sh', 'Camisa') + sel('hat', 'Sombrero') + `<span class="bl hatc">Color del sombrero</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Gafas') + sel('fh', 'Cara');
+  $('#avOpts').innerHTML = sel('h', 'Pelo') + sws('hc', 'Color de pelo') + sws('sk', 'Piel') + sel('tp', 'Ropa') + sws('sh', 'Color de la ropa') + sel('hat', 'Sombrero') + `<span class="bl hatc">Color del sombrero</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Gafas') + sel('fh', 'Cara');
   const hcGroup = $('#avOpts [data-k="hatc"]').parentElement; hcGroup.classList.add('hatc'); hcGroup.setAttribute('aria-label', 'Color del sombrero');
   document.querySelectorAll('#avOpts [data-k="hatc"]').forEach((el, i) => el.setAttribute('aria-label', 'Color del sombrero ' + (i + 1)));
   syncAvatarOpts();
