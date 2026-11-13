@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Texas Hold'em en 3D con dinero ficticio. Juega solo contra bots o con amigos online, sin cuenta.">
+<meta name="description" content="3D Texas Hold'em with play money. Play solo against bots or online with friends, no account needed.">
 <title>Low Poly Poker</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><polygon points='32,32 58.8,43.1 43.1,58.8' fill='%23e0393f'/><polygon points='32,32 43.1,58.8 20.9,58.8' fill='%23c92a31'/><polygon points='32,32 20.9,58.8 5.2,43.1' fill='%23b0222a'/><polygon points='32,32 5.2,43.1 5.2,20.9' fill='%239c1c24'/><polygon points='32,32 5.2,20.9 20.9,5.2' fill='%238f1820'/><polygon points='32,32 20.9,5.2 43.1,5.2' fill='%23a11f27'/><polygon points='32,32 43.1,5.2 58.8,20.9' fill='%23b8262e'/><polygon points='32,32 58.8,20.9 58.8,43.1' fill='%23d2343a'/><polygon points='55.8,48.5 48.5,55.8 43.1,48.7 48.7,43.1' fill='%23f4efe4'/><polygon points='15.5,55.8 8.2,48.5 15.3,43.1 20.9,48.7' fill='%23f4efe4'/><polygon points='8.2,15.5 15.5,8.2 20.9,15.3 15.3,20.9' fill='%23f4efe4'/><polygon points='48.5,8.2 55.8,15.5 48.7,20.9 43.1,15.3' fill='%23f4efe4'/><polygon points='47.7,38.5 38.5,47.7 25.5,47.7 16.3,38.5 16.3,25.5 25.5,16.3 38.5,16.3 47.7,25.5' fill='%23c92a31' stroke='%23f4efe4' stroke-width='2'/><polygon points='47.7,38.5 38.5,47.7 25.5,47.7 16.3,38.5 16.3,25.5 25.5,16.3 38.5,16.3 47.7,25.5' fill='%23000' opacity='.12'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -166,6 +166,7 @@ body{font-family:var(--f-ui);font-size:15px;font-weight:600;letter-spacing:.02em
 
 /* info */
 .info{flex:0 0 190px}
+@media (max-width:980px){.bottom{left:10px;right:10px;gap:8px}.menu{min-width:262px}.info{flex-basis:180px}}
 .info .in{padding:8px 11px 9px;display:flex;flex-direction:column;gap:6px}
 .info label{display:inline-flex;gap:6px;align-items:center;font-size:11.5px;color:var(--dim);cursor:pointer}
 .info input{accent-color:var(--brass)}
@@ -325,7 +326,7 @@ html.inmenu .bottom > *{transition-delay:0s}
 <body>
 <canvas id="gl"></canvas>
 <div class="fx"></div>
-<div class="loading" id="loading"><span>CARGANDO…</span></div>
+<div class="loading" id="loading"><span>LOADING…</span></div>
 
 <div class="hud">
   <div class="toasts" id="toasts" aria-live="polite"></div>
@@ -333,132 +334,132 @@ html.inmenu .bottom > *{transition-delay:0s}
   <div id="tags"></div>
 
   <div class="bottom">
-  <div class="menu panel" role="group" aria-label="Acciones"><div class="in">
-    <div class="msg" id="msg">REPARTIENDO…</div>
+  <div class="menu panel" role="group" aria-label="Actions"><div class="in">
+    <div class="msg" id="msg">DEALING…</div>
     <div class="explain" id="explain"></div>
     <div class="row" id="acts">
       <button class="btn fold" id="bFold">FOLD</button>
       <button class="btn call" id="bCall"><span id="callTxt">CHECK</span></button>
       <div class="amount">
-        <button class="btn small" id="dec" aria-label="Bajar cantidad">−</button>
+        <button class="btn small" id="dec" aria-label="Lower amount">−</button>
         <span class="v" id="raiseVal">$40</span>
-        <button class="btn small" id="inc" aria-label="Subir cantidad">+</button>
+        <button class="btn small" id="inc" aria-label="Raise amount">+</button>
       </div>
       <button class="btn raise" id="bRaise"><span id="raiseTxt">RAISE</span></button>
       <button class="btn raise" id="bAll"><span id="allTxt">ALL-IN</span></button>
     </div>
     <div class="chatrow" id="chatRow" hidden>
-      <input id="chatIn" maxlength="20" autocomplete="off" placeholder="Escribe un mensaje…" aria-label="Mensaje para la mesa (máximo 20 caracteres)">
+      <input id="chatIn" maxlength="20" autocomplete="off" placeholder="Type a message…" aria-label="Message to the table (20 characters max)">
       <span class="chatcnt" id="chatCnt">0/20</span>
-      <button class="btn" id="bSay">ENVIAR</button>
+      <button class="btn" id="bSay">SEND</button>
     </div>
     <div class="row" id="nextBox" hidden>
-      <button class="btn call wide" id="bNext">SIGUIENTE MANO</button>
+      <button class="btn call wide" id="bNext">NEXT HAND</button>
     </div>
     <div class="row" id="brokeBox" hidden>
-      <button class="btn raise wide" id="bReload">PEDIR PRÉSTAMO DE $1.000</button>
+      <button class="btn raise wide" id="bReload">TAKE A $1,000 LOAN</button>
     </div>
   </div></div>
 
-  <div class="cards panel" aria-label="Cartas"><div class="in">
+  <div class="cards panel" aria-label="Cards"><div class="in">
     <div class="streets" id="streets">
       <span data-s="preflop">PRE-FLOP</span><span data-s="flop">FLOP</span><span data-s="turn">TURN</span><span data-s="river">RIVER</span><span data-s="showdown">SHOWDOWN</span>
     </div>
     <div class="cardrow">
-      <div class="grp mychips"><span class="ttl">TUS FICHAS</span><div class="chipval"><span class="chipico" aria-hidden="true"></span><span id="myChips2">$1.000</span></div></div>
+      <div class="grp mychips"><span class="ttl">YOUR CHIPS</span><div class="chipval"><span class="chipico" aria-hidden="true"></span><span id="myChips2">$1,000</span></div></div>
       <div class="sep"></div>
-      <div class="grp"><span class="ttl">TU MANO</span><div class="cs" id="myCards"></div></div>
+      <div class="grp"><span class="ttl">YOUR HAND</span><div class="cs" id="myCards"></div></div>
       <div class="sep"></div>
-      <div class="grp"><span class="ttl">MESA</span><div class="cs" id="boardCards"></div></div>
+      <div class="grp"><span class="ttl">BOARD</span><div class="cs" id="boardCards"></div></div>
     </div>
     <div class="handname" id="hint"></div>
   </div></div>
 
   <div class="info panel"><div class="in">
     <div class="stats">
-      <span class="lbl">BOTE</span><span class="val" id="pot">$0</span>
-      <span class="lbl">MANO</span><span class="val" id="handNo">0</span>
-      <span class="lbl">DEUDA</span><span class="val" id="debt">$0</span>
-      <span class="lbl">RESULTADO</span><span class="val" id="net">$0</span>
+      <span class="lbl">POT</span><span class="val" id="pot">$0</span>
+      <span class="lbl">HAND</span><span class="val" id="handNo">0</span>
+      <span class="lbl">DEBT</span><span class="val" id="debt">$0</span>
+      <span class="lbl">NET</span><span class="val" id="net">$0</span>
     </div>
     <div class="tbl" id="tableInfo" hidden></div>
-    <label for="helpT"><input type="checkbox" id="helpT" checked> AYUDA DE JUGADA</label>
-    <label for="manualT"><input type="checkbox" id="manualT" checked> ELEGIR CARTAS A MANO</label>
-    <label for="soundT"><input type="checkbox" id="soundT" checked> SONIDO</label>
-    <label for="hideT" id="hideL"><input type="checkbox" id="hideT" checked> TAPAR MIS CARTAS</label>
-    <label for="talkT"><input type="checkbox" id="talkT" checked> MENSAJES DE LOS BOTS</label>
+    <label for="helpT"><input type="checkbox" id="helpT" checked> HAND HELPER</label>
+    <label for="manualT"><input type="checkbox" id="manualT" checked> PICK CARDS MYSELF</label>
+    <label for="soundT"><input type="checkbox" id="soundT" checked> SOUND</label>
+    <label for="hideT" id="hideL"><input type="checkbox" id="hideT" checked> COVER MY CARDS</label>
+    <label for="talkT"><input type="checkbox" id="talkT" checked> BOT MESSAGES</label>
     <div class="row">
-      <label for="fast" id="fastL"><input type="checkbox" id="fast"> BOTS RÁPIDOS</label>
-      <button class="btn tiny" id="bHelp">¿CÓMO SE JUEGA?</button>
+      <label for="fast" id="fastL"><input type="checkbox" id="fast"> FAST BOTS</label>
+      <button class="btn tiny" id="bHelp">HOW TO PLAY</button>
     </div>
-    <button class="btn tiny" id="bLeave">MENÚ PRINCIPAL</button>
+    <button class="btn tiny" id="bLeave">MAIN MENU</button>
   </div></div>
   </div>
 
   <div class="helpov" id="startOv">
-    <div class="logo" aria-label="Low Poly Poker"><span class="l1">LOW POLY</span><span class="l2">POKER</span><span class="l3">Texas Hold'em con dinero ficticio</span></div>
+    <div class="logo" aria-label="Low Poly Poker"><span class="l1">LOW POLY</span><span class="l2">POKER</span><span class="l3">Texas Hold'em with play money</span></div>
     <div class="startbox panel"><div class="in">
       <section class="scr" id="scrHome">
-        <label class="fld" for="nameIn">TU NOMBRE<input id="nameIn" maxlength="14" autocomplete="off" placeholder="Jugador"></label>
+        <label class="fld" for="nameIn">YOUR NAME<input id="nameIn" maxlength="14" autocomplete="off" placeholder="Player"></label>
         <div class="bigbtns">
-          <button class="btn call big" id="goSolo">JUGAR SOLO<small>Tú contra 4 bots</small></button>
-          <button class="btn raise big" id="goOnline">JUGAR ONLINE<small>Mesas de hasta 5 personas</small></button>
+          <button class="btn call big" id="goSolo">PLAY SOLO<small>You against 4 bots</small></button>
+          <button class="btn raise big" id="goOnline">PLAY ONLINE<small>Tables of up to 5 people</small></button>
         </div>
-        <button class="btn wide" id="goAvatar">PERSONALIZAR MI AVATAR</button>
+        <button class="btn wide" id="goAvatar">CUSTOMIZE MY AVATAR</button>
         <div class="wallet" id="walletLine"></div>
       </section>
 
       <section class="scr" id="scrSetup" hidden>
-        <div class="scrhead"><button class="btn tiny" id="backSetup">◀ VOLVER</button><h3 id="setupTitle">PARTIDA SOLO</h3></div>
+        <div class="scrhead"><button class="btn tiny" id="backSetup">◀ BACK</button><h3 id="setupTitle">SOLO GAME</h3></div>
         <div class="cols">
           <div class="col" id="botCfg">
-            <div class="sect">PERSONALIDAD DE LOS BOTS</div>
+            <div class="sect">BOT PERSONALITIES</div>
             <div class="botgrid" id="botRows"></div>
             <div class="persdesc" id="persDesc"></div>
           </div>
           <div class="col">
-            <div class="sect">OPCIONES</div>
-            <label class="opt" for="optManual"><input type="checkbox" id="optManual"><span><b>Elegir mis cartas a mano</b><small>Tocas las 5 cartas de tu jugada. Desactivado, el juego usa siempre tu mejor jugada.</small></span></label>
-            <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Ayuda de jugada</b><small>Muestra la jugada recomendada y tu probabilidad de ganar.</small></span></label>
-            <div class="optrow"><label class="chk" for="optSound"><input type="checkbox" id="optSound"> <b>Sonido</b></label><label class="chk" for="optAmb"><input type="checkbox" id="optAmb"> <b>Ambiente del casino</b></label><label class="chk" for="optTalk"><input type="checkbox" id="optTalk"> <b>Mensajes de los bots</b></label><label class="chk" for="optHide" title="Solo en partidas online: tus 2 cartas boca abajo hasta que pases el ratón por encima"><input type="checkbox" id="optHide"> <b>Tapar mis cartas (online)</b></label></div>
-            <button class="btn call big wide" id="bStart">EMPEZAR PARTIDA</button>
+            <div class="sect">OPTIONS</div>
+            <label class="opt" for="optManual"><input type="checkbox" id="optManual"><span><b>Pick my cards myself</b><small>You tap the 5 cards of your hand. When off, the game always uses your best hand.</small></span></label>
+            <label class="opt" for="optHelp"><input type="checkbox" id="optHelp"><span><b>Hand helper</b><small>Shows the recommended hand and your chance of winning.</small></span></label>
+            <div class="optrow"><label class="chk" for="optSound"><input type="checkbox" id="optSound"> <b>Sound</b></label><label class="chk" for="optAmb"><input type="checkbox" id="optAmb"> <b>Casino ambience</b></label><label class="chk" for="optTalk"><input type="checkbox" id="optTalk"> <b>Bot messages</b></label><label class="chk" for="optHide" title="Online games only: your 2 cards stay face down until you hover over them"><input type="checkbox" id="optHide"> <b>Cover my cards (online)</b></label></div>
+            <button class="btn call big wide" id="bStart">START GAME</button>
           </div>
         </div>
       </section>
 
       <div class="buymodal" id="avBuy" hidden role="dialog" aria-modal="true" aria-labelledby="buyTitle"></div>
       <section class="scr" id="scrAvatar" hidden>
-        <div class="scrhead"><button class="btn tiny" id="backAvatar">◀ VOLVER</button><h3>TU AVATAR</h3><span class="wallet" id="avWallet"></span></div>
+        <div class="scrhead"><button class="btn tiny" id="backAvatar">◀ BACK</button><h3>YOUR AVATAR</h3><span class="wallet" id="avWallet"></span></div>
         <div class="cols">
           <div class="col">
             <div class="avbox" id="avBox"></div>
-            <div class="dimtxt">Así te verán los demás jugadores en las mesas online. Las opciones con precio se compran con tus fichas.</div>
+            <div class="dimtxt">This is how other players will see you at online tables. Items with a price are bought with your chips.</div>
           </div>
           <div class="col"><div class="avopts" id="avOpts"></div></div>
         </div>
       </section>
 
       <section class="scr" id="scrOnline" hidden>
-        <div class="scrhead"><button class="btn tiny" id="backOnline">◀ VOLVER</button><h3>JUGAR ONLINE</h3></div>
-        <label class="fld" for="nameIn2">TU NOMBRE EN LA MESA<input id="nameIn2" maxlength="14" autocomplete="off" placeholder="Jugador"></label>
+        <div class="scrhead"><button class="btn tiny" id="backOnline">◀ BACK</button><h3>PLAY ONLINE</h3></div>
+        <label class="fld" for="nameIn2">YOUR NAME AT THE TABLE<input id="nameIn2" maxlength="14" autocomplete="off" placeholder="Player"></label>
         <div id="onlineBox" hidden>
           <div class="block">
-            <div class="sect">CREAR UNA MESA</div>
-            <input id="tableName" maxlength="20" autocomplete="off" placeholder="Nombre de tu mesa">
-            <label for="fillBots" class="chk"><input type="checkbox" id="fillBots" checked> Ocupar las sillas vacías con bots</label>
-            <button class="btn raise wide" id="bCreate">SIGUIENTE: BOTS Y OPCIONES ▶</button>
+            <div class="sect">CREATE A TABLE</div>
+            <input id="tableName" maxlength="20" autocomplete="off" placeholder="Your table's name">
+            <label for="fillBots" class="chk"><input type="checkbox" id="fillBots" checked> Fill empty seats with bots</label>
+            <button class="btn raise wide" id="bCreate">NEXT: BOTS AND OPTIONS ▶</button>
           </div>
           <div class="block">
-            <div class="sect">UNIRSE A UNA MESA</div>
+            <div class="sect">JOIN A TABLE</div>
             <div class="note" id="invite" hidden></div>
             <div class="row">
-              <input id="codeIn" maxlength="20" autocomplete="off" placeholder="Código de mesa (mesa-xxxxx)">
-              <button class="btn" id="bJoinCode">UNIRSE</button>
+              <input id="codeIn" maxlength="20" autocomplete="off" placeholder="Table code (table-xxxxx)">
+              <button class="btn" id="bJoinCode">JOIN</button>
             </div>
-            <div class="note">Quien crea la mesa recibe un <b>enlace de invitación</b>. Abriéndolo se entra directamente, sin cuenta ni registro.</div>
+            <div class="note">Whoever creates the table gets an <b>invite link</b>. Opening it takes you straight in, no account or sign-up needed.</div>
           </div>
         </div>
-        <div class="note" id="onlineOff">Conectando con el servicio de mesas…</div>
+        <div class="note" id="onlineOff">Connecting to the table service…</div>
       </section>
       <div class="note err" id="netErr" hidden></div>
     </div></div>
@@ -466,30 +467,30 @@ html.inmenu .bottom > *{transition-delay:0s}
 
   <div class="helpov" id="helpOv" hidden>
     <div class="helpbox panel"><div class="in">
-      <h2>CÓMO SE JUEGA</h2>
-      <p style="margin:0">Cada mano tiene <b>4 rondas de apuestas</b>. En cada ronda, todos los que siguen en la mano tienen que acabar con <b>la misma cantidad apostada</b>. Si nadie apuesta, todos pasan gratis.</p>
+      <h2>HOW TO PLAY</h2>
+      <p style="margin:0">Each hand has <b>4 betting rounds</b>. In each round, everyone still in the hand has to end up with <b>the same amount bet</b>. If nobody bets, everyone checks for free.</p>
       <ol>
-        <li><b>PRE-FLOP</b>: recibes 2 cartas. Dos jugadores ponen las <b>ciegas</b> (apuestas obligatorias de $10 y $20) para que siempre haya algo en juego. Por eso, para ver el flop tienes que poner al menos $20 (<b>CALL</b>).</li>
-        <li><b>FLOP</b>: salen 3 cartas comunes. Nueva ronda: si nadie apuesta, puedes hacer <b>CHECK</b> y seguir sin poner nada.</li>
-        <li><b>TURN</b>: sale la 4.ª carta común. Otra ronda de apuestas.</li>
-        <li><b>RIVER</b>: sale la 5.ª carta común. Última ronda.</li>
-        <li><b>SHOWDOWN</b>: los que quedan enseñan sus cartas. Gana la mejor combinación de 5 cartas entre tus 2 y las 5 de la mesa.</li>
+        <li><b>PRE-FLOP</b>: you get 2 cards. Two players post the <b>blinds</b> (forced bets of $10 and $20) so there is always something at stake. That is why you need to put in at least $20 (<b>CALL</b>) to see the flop.</li>
+        <li><b>FLOP</b>: 3 community cards are dealt. New round: if nobody bets, you can <b>CHECK</b> and stay in without paying.</li>
+        <li><b>TURN</b>: the 4th community card. Another betting round.</li>
+        <li><b>RIVER</b>: the 5th community card. Last round.</li>
+        <li><b>SHOWDOWN</b>: the remaining players show their cards. The best 5-card hand made from your 2 cards and the 5 on the board wins.</li>
       </ol>
-      <p style="margin:0"><b>CHECK</b>: pasar sin poner dinero (solo si nadie ha apostado). <b>CALL</b>: igualar lo que otro apostó. <b>BET / RAISE</b>: apostar o subir; es opcional, nunca estás obligado. <b>FOLD</b>: retirarte y perder lo que ya pusiste. <b>ALL-IN</b>: apostar todas tus fichas.</p>
-      <p style="margin:0">Si te quedas sin fichas no puedes jugar hasta pedir un <b>préstamo de $1.000</b> al casino. Mientras tengas deuda, lo que ganes en cada mano va primero a pagarla.</p>
-      <h2>LAS COMBINACIONES</h2>
-      <p style="margin:0">De mejor a peor. Tu jugada son las <b>5 mejores cartas</b> que puedas formar con tus 2 cartas y las 5 de la mesa. Las cartas en dorado son las que forman la combinación.</p>
-      <div class="hands"><div class="hrow"><span class="hn">1</span><div class="ht"><b>Escalera real</b><small>A, K, Q, J y 10 del mismo palo. La mejor mano posible.</small></div><div class="hcs"><span class="mc on">A♠</span><span class="mc on">K♠</span><span class="mc on">Q♠</span><span class="mc on">J♠</span><span class="mc on">10♠</span></div></div><div class="hrow"><span class="hn">2</span><div class="ht"><b>Escalera de color</b><small>5 cartas seguidas del mismo palo.</small></div><div class="hcs"><span class="mc red on">9♥</span><span class="mc red on">8♥</span><span class="mc red on">7♥</span><span class="mc red on">6♥</span><span class="mc red on">5♥</span></div></div><div class="hrow"><span class="hn">3</span><div class="ht"><b>Póker</b><small>4 cartas del mismo número.</small></div><div class="hcs"><span class="mc on">Q♣</span><span class="mc red on">Q♦</span><span class="mc red on">Q♥</span><span class="mc on">Q♠</span><span class="mc red">7♦</span></div></div><div class="hrow"><span class="hn">4</span><div class="ht"><b>Full</b><small>Un trío y una pareja a la vez.</small></div><div class="hcs"><span class="mc red on">K♥</span><span class="mc red on">K♦</span><span class="mc on">K♠</span><span class="mc on">4♣</span><span class="mc red on">4♥</span></div></div><div class="hrow"><span class="hn">5</span><div class="ht"><b>Color</b><small>5 cartas del mismo palo, en cualquier orden.</small></div><div class="hcs"><span class="mc red on">A♦</span><span class="mc red on">J♦</span><span class="mc red on">8♦</span><span class="mc red on">6♦</span><span class="mc red on">2♦</span></div></div><div class="hrow"><span class="hn">6</span><div class="ht"><b>Escalera</b><small>5 cartas seguidas de cualquier palo. El as puede ir arriba (10-J-Q-K-A) o abajo (A-2-3-4-5).</small></div><div class="hcs"><span class="mc on">10♣</span><span class="mc red on">9♦</span><span class="mc on">8♠</span><span class="mc red on">7♥</span><span class="mc on">6♣</span></div></div><div class="hrow"><span class="hn">7</span><div class="ht"><b>Trío</b><small>3 cartas del mismo número.</small></div><div class="hcs"><span class="mc on">7♠</span><span class="mc red on">7♥</span><span class="mc red on">7♦</span><span class="mc">K♣</span><span class="mc">2♠</span></div></div><div class="hrow"><span class="hn">8</span><div class="ht"><b>Doble pareja</b><small>Dos parejas distintas.</small></div><div class="hcs"><span class="mc on">J♣</span><span class="mc red on">J♥</span><span class="mc on">5♠</span><span class="mc red on">5♦</span><span class="mc">A♣</span></div></div><div class="hrow"><span class="hn">9</span><div class="ht"><b>Pareja</b><small>2 cartas del mismo número.</small></div><div class="hcs"><span class="mc red on">A♥</span><span class="mc red on">A♦</span><span class="mc">9♣</span><span class="mc">6♠</span><span class="mc red">3♥</span></div></div><div class="hrow"><span class="hn">10</span><div class="ht"><b>Carta alta</b><small>Sin nada de lo anterior: cuenta la carta más alta.</small></div><div class="hcs"><span class="mc on">K♠</span><span class="mc red">J♦</span><span class="mc">8♣</span><span class="mc red">5♥</span><span class="mc">2♠</span></div></div></div>
-      <h2>CÓMO PENSAR TU MANO</h2>
+      <p style="margin:0"><b>CHECK</b>: pass without putting in money (only if nobody has bet). <b>CALL</b>: match what someone else bet. <b>BET / RAISE</b>: bet or raise; it is optional, you are never forced to. <b>FOLD</b>: give up and lose what you already put in. <b>ALL-IN</b>: bet all your chips.</p>
+      <p style="margin:0">If you run out of chips you can't play until you take a <b>$1,000 loan</b> from the casino. While you are in debt, what you win each hand goes to paying it off first.</p>
+      <h2>HAND RANKINGS</h2>
+      <p style="margin:0">From best to worst. Your hand is the <b>best 5 cards</b> you can make from your 2 cards and the 5 on the board. The gold cards are the ones that make the combination.</p>
+      <div class="hands"><div class="hrow"><span class="hn">1</span><div class="ht"><b>Royal flush</b><small>A, K, Q, J and 10 of the same suit. The best possible hand.</small></div><div class="hcs"><span class="mc on">A♠</span><span class="mc on">K♠</span><span class="mc on">Q♠</span><span class="mc on">J♠</span><span class="mc on">10♠</span></div></div><div class="hrow"><span class="hn">2</span><div class="ht"><b>Straight flush</b><small>5 cards in a row of the same suit.</small></div><div class="hcs"><span class="mc red on">9♥</span><span class="mc red on">8♥</span><span class="mc red on">7♥</span><span class="mc red on">6♥</span><span class="mc red on">5♥</span></div></div><div class="hrow"><span class="hn">3</span><div class="ht"><b>Four of a kind</b><small>4 cards of the same rank.</small></div><div class="hcs"><span class="mc on">Q♣</span><span class="mc red on">Q♦</span><span class="mc red on">Q♥</span><span class="mc on">Q♠</span><span class="mc red">7♦</span></div></div><div class="hrow"><span class="hn">4</span><div class="ht"><b>Full house</b><small>Three of a kind and a pair at the same time.</small></div><div class="hcs"><span class="mc red on">K♥</span><span class="mc red on">K♦</span><span class="mc on">K♠</span><span class="mc on">4♣</span><span class="mc red on">4♥</span></div></div><div class="hrow"><span class="hn">5</span><div class="ht"><b>Flush</b><small>5 cards of the same suit, in any order.</small></div><div class="hcs"><span class="mc red on">A♦</span><span class="mc red on">J♦</span><span class="mc red on">8♦</span><span class="mc red on">6♦</span><span class="mc red on">2♦</span></div></div><div class="hrow"><span class="hn">6</span><div class="ht"><b>Straight</b><small>5 cards in a row of any suit. The ace can be high (10-J-Q-K-A) or low (A-2-3-4-5).</small></div><div class="hcs"><span class="mc on">10♣</span><span class="mc red on">9♦</span><span class="mc on">8♠</span><span class="mc red on">7♥</span><span class="mc on">6♣</span></div></div><div class="hrow"><span class="hn">7</span><div class="ht"><b>Three of a kind</b><small>3 cards of the same rank.</small></div><div class="hcs"><span class="mc on">7♠</span><span class="mc red on">7♥</span><span class="mc red on">7♦</span><span class="mc">K♣</span><span class="mc">2♠</span></div></div><div class="hrow"><span class="hn">8</span><div class="ht"><b>Two pair</b><small>Two different pairs.</small></div><div class="hcs"><span class="mc on">J♣</span><span class="mc red on">J♥</span><span class="mc on">5♠</span><span class="mc red on">5♦</span><span class="mc">A♣</span></div></div><div class="hrow"><span class="hn">9</span><div class="ht"><b>Pair</b><small>2 cards of the same rank.</small></div><div class="hcs"><span class="mc red on">A♥</span><span class="mc red on">A♦</span><span class="mc">9♣</span><span class="mc">6♠</span><span class="mc red">3♥</span></div></div><div class="hrow"><span class="hn">10</span><div class="ht"><b>High card</b><small>None of the above: the highest card counts.</small></div><div class="hcs"><span class="mc on">K♠</span><span class="mc red">J♦</span><span class="mc">8♣</span><span class="mc red">5♥</span><span class="mc">2♠</span></div></div></div>
+      <h2>THINKING ABOUT YOUR HAND</h2>
       <ul class="tips">
-        <li><b>Lo que hay en la mesa es de todos.</b> Si la pareja está en la mesa, todos la tienen: lo que cuenta es lo que añaden tus 2 cartas.</li>
-        <li><b>Empate en la misma jugada:</b> gana la más alta (pareja de reyes gana a pareja de ochos). Si son iguales, desempata la carta más alta que sobra, el <b>kicker</b>: A-A-K gana a A-A-Q.</li>
-        <li><b>Cuenta tus "outs":</b> las cartas que aún pueden salir y te mejoran. Con 4 cartas de corazones te faltan 9 corazones para el color. Truco: outs × 4 tras el flop (o × 2 tras el turn) = % aproximado de ligarlo.</li>
-        <li><b>Mira la mesa con ojos del rival:</b> si hay 3 cartas del mismo palo, alguien puede tener color; si están seguidas, escalera. Cuantas más posibilidades, más cuidado.</li>
-        <li><b>Las manos iniciales importan:</b> parejas altas (A-A, K-K, Q-Q) y A-K son muy fuertes; cartas bajas sin relación (7-2 de distinto palo) casi nunca ganan.</li>
-        <li><b>No siempre gana la mejor mano:</b> si apuestas fuerte y todos se retiran, ganas sin enseñar cartas. Los bots también lo saben y a veces farolean.</li>
+        <li><b>The board belongs to everyone.</b> If the pair is on the board, everyone has it: what counts is what your 2 cards add.</li>
+        <li><b>Same type of hand:</b> the higher one wins (a pair of kings beats a pair of eights). If they are equal, the highest leftover card breaks the tie, the <b>kicker</b>: A-A-K beats A-A-Q.</li>
+        <li><b>Count your "outs":</b> the cards still to come that improve your hand. With 4 hearts you have 9 hearts left for a flush. Trick: outs × 4 after the flop (or × 2 after the turn) = rough % chance of hitting.</li>
+        <li><b>Read the board like your opponent:</b> if there are 3 cards of the same suit, someone may have a flush; if they are in a row, a straight. The more possibilities, the more careful you should be.</li>
+        <li><b>Starting hands matter:</b> high pairs (A-A, K-K, Q-Q) and A-K are very strong; unrelated low cards (offsuit 7-2) almost never win.</li>
+        <li><b>The best hand doesn't always win:</b> if you bet big and everyone folds, you win without showing your cards. The bots know this too and sometimes bluff.</li>
       </ul>
-      <div class="row"><button class="btn call wide" id="bHelpClose">ENTENDIDO</button></div>
+      <div class="row"><button class="btn call wide" id="bHelpClose">GOT IT</button></div>
     </div></div>
   </div>
 </div>
@@ -623,23 +624,23 @@ const $ = s => document.querySelector(s);
 const N = 5, SB = 10, BB = 20, START = 1000;
 const SUITS = ['♠','♥','♦','♣'];
 const RS = r => ({11:'J',12:'Q',13:'K',14:'A'})[r] || String(r);
-const ONE = {14:'as',13:'rey',12:'reina',11:'jota'};
+const ONE = {14:'ace',13:'king',12:'queen',11:'jack'};
 const one = r => ONE[r] || String(r);
-const PL = {2:'doses',3:'treses',4:'cuatros',5:'cincos',6:'seises',7:'sietes',8:'ochos',9:'nueves',10:'dieces',11:'jotas',12:'reinas',13:'reyes',14:'ases'};
+const PL = {2:'twos',3:'threes',4:'fours',5:'fives',6:'sixes',7:'sevens',8:'eights',9:'nines',10:'tens',11:'jacks',12:'queens',13:'kings',14:'aces'};
 const key = c => c.hid || c.mk || (c.r + '-' + c.s);
-const fmt = n => '$' + n.toLocaleString('es-ES');
+const fmt = n => '$' + n.toLocaleString('en-US');
 const cardTxt = c => RS(c.r) + SUITS[c.s];
 
 const POOL = [
   {name:'Doc', tight:.6, aggr:.45, bluff:.04, look:{shirt:0x4f6b73, skin:0xe0b48f, hair:'short', hairC:0x9a9a9a, glasses:'glasses'}},
-  {name:'Rusa', tight:.35, aggr:.85, bluff:.1, look:{shirt:0x9c2027, skin:0xf0cdb0, hair:'long', hairC:0x1d1412}},
-  {name:'Pancho', tight:.1, aggr:.4, bluff:.08, look:{shirt:0xc7702c, skin:0xb98159, hair:'short', hairC:0x2a1a10, hat:'cowboy', stache:true}},
+  {name:'Roxy', tight:.35, aggr:.85, bluff:.1, look:{shirt:0x9c2027, skin:0xf0cdb0, hair:'long', hairC:0x1d1412}},
+  {name:'Hank', tight:.1, aggr:.4, bluff:.08, look:{shirt:0xc7702c, skin:0xb98159, hair:'short', hairC:0x2a1a10, hat:'cowboy', stache:true}},
   {name:'Mimi', tight:.9, aggr:.3, bluff:.01, look:{shirt:0x8f7fb3, skin:0xf1d2bd, hair:'bun', hairC:0xd8d2c8, glasses:'glasses'}},
-  {name:'Tiburon', tight:.5, aggr:.75, bluff:.07, look:{shirt:0x1e2a44, skin:0xd2a07a, hair:'slick', hairC:0x111111, glasses:'shades'}},
-  {name:'Profe', tight:.75, aggr:.55, bluff:.03, look:{shirt:0x6e5235, skin:0xe6bd98, hair:'bald', hairC:0x5a4a3a, beard:true}},
-  {name:'Chispa', tight:.25, aggr:.6, bluff:.16, look:{shirt:0xe0b82e, skin:0x8d5a3b, hair:'short', hairC:0x111111, hat:'cap', hatC:0x2b6cb0}},
+  {name:'Shark', tight:.5, aggr:.75, bluff:.07, look:{shirt:0x1e2a44, skin:0xd2a07a, hair:'slick', hairC:0x111111, glasses:'shades'}},
+  {name:'Prof', tight:.75, aggr:.55, bluff:.03, look:{shirt:0x6e5235, skin:0xe6bd98, hair:'bald', hairC:0x5a4a3a, beard:true}},
+  {name:'Sparky', tight:.25, aggr:.6, bluff:.16, look:{shirt:0xe0b82e, skin:0x8d5a3b, hair:'short', hairC:0x111111, hat:'cap', hatC:0x2b6cb0}},
   {name:'Lola', tight:.5, aggr:.5, bluff:.05, look:{shirt:0x2f7d5b, skin:0xf3d0b5, hair:'long', hairC:0x8a3b1c}},
-  {name:'Nacho', tight:.2, aggr:.15, bluff:.02, look:{shirt:0x3a6fb0, skin:0xd9a882, hair:'short', hairC:0x3b2414, hat:'beanie', hatC:0x7a2633}},
+  {name:'Ned', tight:.2, aggr:.15, bluff:.02, look:{shirt:0x3a6fb0, skin:0xd9a882, hair:'short', hairC:0x3b2414, hat:'beanie', hatC:0x7a2633}},
 ];
 
 /* ---------- hand evaluation ---------- */
@@ -672,21 +673,21 @@ function best(cards){
   }
   return b;
 }
-const SUITN = ['picas','corazones','diamantes','tréboles'];
-const NAME = r => ({14:'as',13:'rey',12:'reina',11:'jota'})[r] || String(r);
-const span = h => h === 5 ? 'del as al 5' : `del ${NAME(h-4)} al ${NAME(h)}`;
+const SUITN = ['spades','hearts','diamonds','clubs'];
+const NAME = r => ({14:'ace',13:'king',12:'queen',11:'jack'})[r] || String(r);
+const span = h => h === 5 ? 'ace to 5' : `${NAME(h-4)} to ${NAME(h)}`;
 function describe(v){
   const t = v.tb;
   switch(v.cat){
-    case 8: return t[0]===14 ? 'Escalera real' : 'Escalera de color ' + span(t[0]);
-    case 7: return 'Póker de ' + PL[t[0]];
-    case 6: return 'Full: trío de ' + PL[t[0]] + ' y pareja de ' + PL[t[1]];
-    case 5: return 'Color: 5 cartas de ' + SUITN[v.cards[0].s];
-    case 4: return 'Escalera ' + span(t[0]);
-    case 3: return 'Trío de ' + PL[t[0]];
-    case 2: return 'Doble pareja: ' + PL[t[0]] + ' y ' + PL[t[1]];
-    case 1: return 'Pareja de ' + PL[t[0]];
-    default: return 'Carta alta: ' + NAME(t[0]);
+    case 8: return t[0]===14 ? 'Royal flush' : 'Straight flush, ' + span(t[0]);
+    case 7: return 'Four of a kind: ' + PL[t[0]];
+    case 6: return 'Full house: ' + PL[t[0]] + ' full of ' + PL[t[1]];
+    case 5: return 'Flush: 5 ' + SUITN[v.cards[0].s];
+    case 4: return 'Straight, ' + span(t[0]);
+    case 3: return 'Three of a kind: ' + PL[t[0]];
+    case 2: return 'Two pair: ' + PL[t[0]] + ' and ' + PL[t[1]];
+    case 1: return 'Pair of ' + PL[t[0]];
+    default: return 'High card: ' + NAME(t[0]);
   }
 }
 // the cards that actually form the combination (no kickers)
@@ -704,9 +705,9 @@ function coreCards(v){
   return v.cards.filter(c => cnt[c.r] >= 2);
 }
 function describeHole(h){
-  if (h[0].r === h[1].r) return 'Ya tienes pareja de ' + PL[h[0].r];
+  if (h[0].r === h[1].r) return 'You already have a pair of ' + PL[h[0].r];
   const hi = Math.max(h[0].r,h[1].r), lo = Math.min(h[0].r,h[1].r);
-  return `${NAME(hi)} y ${NAME(lo)}` + (h[0].s===h[1].s ? ' del mismo palo' : '');
+  return `${NAME(hi)} and ${NAME(lo)}` + (h[0].s===h[1].s ? ', suited' : '');
 }
 // fast 7-card evaluator: same ordering and score as best(cards).score, without building the 21 five-card combinations
 const S7_CNT = new Int8Array(15), S7_SC = new Int8Array(4), S7_SM = new Int32Array(4);
@@ -770,14 +771,14 @@ const G = { hide:true, peek:false, av:{...{h:0, hc:1, sk:1, tp:0, sh:2, hat:0, h
   turn:-1, waiting:null, handOver:false, running:false, hi:new Set(), banner:'', hintEq:null, fast:false, muck:[] };
 
 const PERS = [
-  {id:'rand', name:'Sorpresa', desc:'cada bot con su propio estilo, elegido al azar.'},
-  {id:'tight', name:'Prudente', desc:'juega pocas manos y apuesta poco. Solo sube con cartas muy buenas.', tight:.88, aggr:.25, bluff:.01},
-  {id:'calm', name:'Tranquilo', desc:'iguala casi todo y casi nunca sube. Fácil de leer.', tight:.22, aggr:.1, bluff:.02},
-  {id:'bal', name:'Equilibrado', desc:'ni mucho ni poco: juega con cabeza y a veces farolea.', tight:.5, aggr:.5, bluff:.05},
-  {id:'aggr', name:'Agresivo', desc:'apuesta fuerte cuando tiene algo y presiona a los demás.', tight:.4, aggr:.85, bluff:.09},
-  {id:'wild', name:'Intenso', desc:'sube sin parar, va all-in a menudo y se tira muchos faroles.', tight:.08, aggr:.98, bluff:.24},
+  {id:'rand', name:'Surprise', desc:'each bot gets its own style, picked at random.'},
+  {id:'tight', name:'Careful', desc:'plays few hands and bets small. Only raises with very good cards.', tight:.88, aggr:.25, bluff:.01},
+  {id:'calm', name:'Calm', desc:'calls almost everything and hardly ever raises. Easy to read.', tight:.22, aggr:.1, bluff:.02},
+  {id:'bal', name:'Balanced', desc:'not too much, not too little: plays smart and bluffs now and then.', tight:.5, aggr:.5, bluff:.05},
+  {id:'aggr', name:'Aggressive', desc:'bets big when it has something and puts pressure on the others.', tight:.4, aggr:.85, bluff:.09},
+  {id:'wild', name:'Wild', desc:'raises nonstop, goes all-in often and bluffs a lot.', tight:.08, aggr:.98, bluff:.24},
 ];
-const SEATL = ['', 'Izquierda', 'Fondo izquierda', 'Fondo derecha', 'Derecha'];
+const SEATL = ['', 'Left', 'Far left', 'Far right', 'Right'];
 function makeBot(seat){
   const seated = new Set(G.players.filter(Boolean).map(p => p.name));
   const free = POOL.filter(b => !seated.has(b.name));
@@ -799,16 +800,16 @@ function shuffle(a){ for (let i=a.length-1;i>0;i--){ const j = Math.random()*(i+
 function newDeck(){ const d=[]; for (let s=0;s<4;s++) for (let r=2;r<=14;r++) d.push({r,s}); return shuffle(d); }
 
 function log(){}
-const EXP = {flop:'Salen 3 cartas comunes. Empieza otra ronda: si nadie apuesta, todos pueden hacer CHECK gratis.',
-  turn:'Sale la 4.ª carta común. Nueva ronda de apuestas.', river:'Sale la 5.ª y última carta común. Última ronda de apuestas.',
-  showdown:'Los jugadores que quedan enseñan sus cartas. Gana la mejor combinación de 5.'};
+const EXP = {flop:'3 community cards are dealt. A new round starts: if nobody bets, everyone can CHECK for free.',
+  turn:'The 4th community card. New betting round.', river:'The 5th and last community card. Last betting round.',
+  showdown:'The remaining players show their cards. The best 5-card hand wins.'};
 function preflopToast(sbP, bbP){
-  toast(`MANO #${G.hand} · PRE-FLOP`, `Apuestas obligatorias (ciegas): ${who(sbP)} pone ${fmt(SB)} y ${who(bbP)} pone ${fmt(BB)}. Así siempre hay algo en juego.`, 'street', 4200);
+  toast(`HAND #${G.hand} · PRE-FLOP`, `Forced bets (blinds): ${who(sbP)} ${fmt(SB)}, ${who(bbP)} ${fmt(BB)}. That way there is always something at stake.`, 'street', 4200);
 }
-const SEATN = ['TÚ','JUGADOR DE LA IZQUIERDA','JUGADOR DEL FONDO IZQ.','JUGADOR DEL FONDO DCHA.','JUGADOR DE LA DERECHA'];
-const who = p => { const i = G.players.indexOf(p); if (i === 0) return 'TÚ'; if (p.kind !== 'bot') return (p.name || 'JUGADOR').toUpperCase(); return SEATN[i]; };
+const SEATN = ['YOU','PLAYER ON THE LEFT','FAR LEFT PLAYER','FAR RIGHT PLAYER','PLAYER ON THE RIGHT'];
+const who = p => { const i = G.players.indexOf(p); if (i === 0) return 'YOU'; if (p.kind !== 'bot') return (p.name || 'PLAYER').toUpperCase(); return SEATN[i]; };
 const cap = t => t.charAt(0) + t.slice(1).toLowerCase();
-const cleanName = t => String(t || '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 14) || 'Jugador';
+const cleanName = t => String(t || '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 14) || 'Player';
 function toast(t1, t2='', kind='', ms=3400){
   const box = $('#toasts'); const el = document.createElement('div');
   el.className = 'toast panel ' + kind;
@@ -860,7 +861,7 @@ async function startHand(){
   const sb = active === 2 ? G.dealer : nextIdx(G.dealer, p => !p.out);
   const bb = nextIdx(sb, p => !p.out);
   G.sbI = sb; G.bbI = bb;
-  log(`Mano #${G.hand}. Botón: ${G.players[G.dealer].name}.`, 'street');
+  log(`Hand #${G.hand}. Button: ${G.players[G.dealer].name}.`, 'street');
   const a = move(G.players[sb], SB); G.players[sb].last = 'Small blind ' + fmt(a);
   const b = move(G.players[bb], BB); G.players[bb].last = 'Big blind ' + fmt(b);
   preflopToast(G.players[sb], G.players[bb]);
@@ -1026,34 +1027,34 @@ function showResult(){
   const me = G.players[0]; const net = me.chips + (me.repaid || 0) - G.myStart;
   const iWon = R0.winners.some(w => w.p === me);
   const box = $('#result'); box.className = 'result panel ' + (net > 0 ? 'good' : net < 0 ? 'bad' : 'even');
-  let title = net > 0 ? `¡HAS GANADO ${fmt(net)}!` : net < 0 ? `HAS PERDIDO ${fmt(-net)}` : (me.folded ? 'NO HAS PERDIDO NADA' : 'RECUPERAS LO QUE APOSTASTE');
-  const nameOf = p => p !== me ? (p.kind === 'bot' ? cap(who(p)) : p.name) : 'Tú';
+  let title = net > 0 ? `YOU WON ${fmt(net)}!` : net < 0 ? `YOU LOST ${fmt(-net)}` : (me.folded ? 'YOU LOST NOTHING' : 'YOU GET YOUR BET BACK');
+  const nameOf = p => p !== me ? (p.kind === 'bot' ? cap(who(p)) : p.name) : 'You';
   const rs = c => c.r + '-' + c.s;
   const cardsOf = p => { if (!p.best) return ''; const core = new Set(coreCards(p.best).map(rs));
-    return `<div class="rc"><span class="rk">${p !== me ? `Cartas de ${esc(nameOf(p))}` : 'Tus cartas'}</span>${p.hole.map(c => mini(c, core.has(rs(c)))).join('')}<span class="rk">Jugada</span>${p.best.cards.map(c => mini(c, core.has(rs(c)))).join('')}</div>`; };
+    return `<div class="rc"><span class="rk">${p !== me ? `${esc(nameOf(p))}'s cards` : 'Your cards'}</span>${p.hole.map(c => mini(c, core.has(rs(c)))).join('')}<span class="rk">Hand</span>${p.best.cards.map(c => mini(c, core.has(rs(c)))).join('')}</div>`; };
   const potLine = (pt, label) => {
     const ws = pt.ws;
     if (ws.length > 1){
       const each = Math.floor(pt.amt / ws.length);
-      return `<div class="rl">${label}<b>Empate</b>: ${ws.map(w => `<b>${esc(nameOf(w))}</b>`).join(' y ')} ${ws.includes(me) ? 'tenéis' : 'tienen'} la misma jugada${ws[0].best ? ` (<b class="combo">${describe(ws[0].best).toLowerCase()}</b>)` : ''} y se reparten ${fmt(pt.amt)}: ${fmt(each)} cada uno.</div>` + ws.map(cardsOf).join('');
+      return `<div class="rl">${label}<b>Tie</b>: ${ws.map(w => `<b>${esc(nameOf(w))}</b>`).join(' and ')} have the same hand${ws[0].best ? ` (<b class="combo">${describe(ws[0].best).toLowerCase()}</b>)` : ''} and split ${fmt(pt.amt)}: ${fmt(each)} each.</div>` + ws.map(cardsOf).join('');
     }
     const w = ws[0], other = w !== me;
-    return `<div class="rl">${label}<b>${esc(nameOf(w))}</b> ${other ? 'gana' : 'ganas'} ${fmt(pt.amt)}${w.best ? ` con <b class="combo">${describe(w.best).toLowerCase()}</b>` : ''}</div>` + cardsOf(w);
+    return `<div class="rl">${label}<b>${esc(nameOf(w))}</b> ${other ? 'wins' : 'win'} ${fmt(pt.amt)}${w.best ? ` with <b class="combo">${describe(w.best).toLowerCase()}</b>` : ''}</div>` + cardsOf(w);
   };
   let lines;
   if (!R0.byFold && R0.pots && R0.pots.length){
     const multi = R0.pots.length > 1;
-    lines = R0.pots.map((pt, i) => potLine(pt, multi ? `<span class="potlbl">${i === 0 ? 'BOTE PRINCIPAL' : 'BOTE SECUNDARIO'}</span> ` : '')).join('');
-    if (multi) lines += '<div class="rl dimtxt">Hay más de un bote porque alguien fue all-in con menos fichas: solo puede ganar la parte que pudo igualar. El resto se lo juegan los demás.</div>';
-    for (const x of R0.returns || []) lines += `<div class="rl dimtxt">${x.p === me ? 'Recuperas' : `${esc(nameOf(x.p))} recupera`} ${fmt(x.amt)} que ${x.p === me ? 'apostaste' : 'apostó'} de más y nadie pudo igualar.</div>`;
+    lines = R0.pots.map((pt, i) => potLine(pt, multi ? `<span class="potlbl">${i === 0 ? 'MAIN POT' : 'SIDE POT'}</span> ` : '')).join('');
+    if (multi) lines += '<div class="rl dimtxt">There is more than one pot because someone went all-in with fewer chips: they can only win the part they could match. The others play for the rest.</div>';
+    for (const x of R0.returns || []) lines += `<div class="rl dimtxt">${x.p === me ? 'You get back' : `${esc(nameOf(x.p))} gets back`} ${fmt(x.amt)} that nobody could match.</div>`;
   } else lines = R0.winners.map(({p, amt}) => {
     const other = p !== me; const name = nameOf(p);
-    if (R0.byFold) return `<div class="rl"><b>${name}</b> ${other ? 'se lleva' : 'te llevas'} el bote de ${fmt(amt)} porque todos los demás se retiraron. ${other ? 'No tiene que enseñar sus cartas.' : ''}</div>`;
-    if (!p.best) return `<div class="rl"><b>${name}</b> ${other ? 'gana' : 'ganas'} ${fmt(amt)}</div>`;
+    if (R0.byFold) return `<div class="rl"><b>${name}</b> ${other ? 'takes' : 'take'} the ${fmt(amt)} pot because everyone else folded. ${other ? 'They don\'t have to show their cards.' : ''}</div>`;
+    if (!p.best) return `<div class="rl"><b>${name}</b> ${other ? 'wins' : 'win'} ${fmt(amt)}</div>`;
     const core = new Set(coreCards(p.best).map(key));
-    return `<div class="rl"><b>${name}</b> ${other ? 'gana' : 'ganas'} ${fmt(amt)} con <b class="combo">${describe(p.best).toLowerCase()}</b></div>
-      <div class="rc"><span class="rk">${other ? 'Sus cartas' : 'Tus cartas'}</span>${p.hole.map(c => mini(c, core.has(key(c)))).join('')}
-      <span class="rk">Jugada</span>${p.best.cards.map(c => mini(c, core.has(key(c)))).join('')}</div>`;
+    return `<div class="rl"><b>${name}</b> ${other ? 'wins' : 'win'} ${fmt(amt)} with <b class="combo">${describe(p.best).toLowerCase()}</b></div>
+      <div class="rc"><span class="rk">${other ? 'Their cards' : 'Your cards'}</span>${p.hole.map(c => mini(c, core.has(key(c)))).join('')}
+      <span class="rk">Hand</span>${p.best.cards.map(c => mini(c, core.has(key(c)))).join('')}</div>`;
   }).join('');
   let kick = '';
   if (!R0.byFold && !iWon && !me.folded && me.best){
@@ -1064,26 +1065,26 @@ function showResult(){
       if (k >= 0){
         const wr = w.tb[k], mr = me.best.tb[k];
         const grouped = w.cards.filter(c => c.r === wr).length >= 2 && ![4,5,8].includes(w.cat);
-        const why = [4,8].includes(w.cat) ? 'Su escalera es más alta.'
-          : grouped ? `Sus <b>${PL[wr]}</b> ganan a tus <b>${PL[mr]}</b>.`
-          : `Desempata la carta más alta que queda (el "kicker"): su <b>${NAME(wr)}</b> gana a tu <b>${NAME(mr)}</b>.`;
-        kick = `<div class="rl">Tú tenías <b>${describe(me.best).toLowerCase()}</b>, el mismo tipo de jugada. ${why}</div>`;
+        const why = [4,8].includes(w.cat) ? 'Their straight is higher.'
+          : grouped ? `Their <b>${PL[wr]}</b> beat your <b>${PL[mr]}</b>.`
+          : `The highest leftover card (the "kicker") breaks the tie: their <b>${NAME(wr)}</b> beats your <b>${NAME(mr)}</b>.`;
+        kick = `<div class="rl">You had <b>${describe(me.best).toLowerCase()}</b>, the same type of hand. ${why}</div>`;
       }
-    } else kick = `<div class="rl dimtxt">Tu jugada era ${describe(me.best).toLowerCase()}, que vale menos.</div>`;
+    } else kick = `<div class="rl dimtxt">Your hand was ${describe(me.best).toLowerCase()}, which ranks lower.</div>`;
   }
-  const pay = me.repaid > 0 ? `<div class="rl"><b>${fmt(me.repaid)}</b> de lo ganado ${me.debt > 0 ? 'van' : 'han ido'} a pagar tu deuda con el casino. ${me.debt > 0 ? `Aún debes <b>${fmt(me.debt)}</b>.` : '<b>¡Deuda saldada!</b> A partir de ahora lo que ganes es tuyo.'}</div>` : '';
+  const pay = me.repaid > 0 ? `<div class="rl"><b>${fmt(me.repaid)}</b> of your winnings ${me.debt > 0 ? 'go' : 'went'} to paying your debt to the casino. ${me.debt > 0 ? `You still owe <b>${fmt(me.debt)}</b>.` : '<b>Debt paid off!</b> From now on what you win is yours.'}</div>` : '';
   let choice = '';
   if (!R0.byFold && !me.folded && me.best && me.autoBest){
-    if (!me.picked && G.manual) choice = `<div class="rl dimtxt">No elegiste 5 cartas, así que se usó tu mejor jugada: ${describe(me.best).toLowerCase()}.</div>`;
+    if (!me.picked && G.manual) choice = `<div class="rl dimtxt">You didn't pick 5 cards, so your best hand was used: ${describe(me.best).toLowerCase()}.</div>`;
     else if (me.best.score < me.autoBest.score){
       const dA = describe(me.best).toLowerCase(), dB = describe(me.autoBest).toLowerCase();
       const better = me.autoBest.cards.map(c => mini(c, true)).join('');
       choice = dA === dB
-        ? `<div class="rl">Elegiste <b>${dA}</b>, pero no con tus cartas más altas como acompañantes (kickers). Lo mejor era:</div><div class="rc">${better}</div>`
-        : `<div class="rl">Elegiste <b>${dA}</b>, pero con tus cartas podías tener <b>${dB}</b>:</div><div class="rc">${better}</div>`;
+        ? `<div class="rl">You picked <b>${dA}</b>, but not with your highest side cards (kickers). The best was:</div><div class="rc">${better}</div>`
+        : `<div class="rl">You picked <b>${dA}</b>, but with your cards you could have had <b>${dB}</b>:</div><div class="rc">${better}</div>`;
     }
   }
-  const why = net < 0 && me.folded ? '<div class="rl dimtxt">Te retiraste, así que pierdes lo que ya habías puesto en el bote.</div>' : '';
+  const why = net < 0 && me.folded ? '<div class="rl dimtxt">You folded, so you lose what you had already put in the pot.</div>' : '';
   box.innerHTML = `<div class="in"><div class="rt">${title}</div>${lines}${kick}${choice}${pay}${why}</div>`;
   box.hidden = false;
   $('#toasts').innerHTML = '';
@@ -1284,7 +1285,7 @@ function saveWallet(){
   showWallet();
 }
 function showWallet(){
-  const html = `<span class="wc">FICHAS <b class="money">${fmt(WALLET.chips)}</b></span><span class="wc">DEUDA <b class="debt">${fmt(WALLET.debt)}</b></span>`;
+  const html = `<span class="wc">CHIPS <b class="money">${fmt(WALLET.chips)}</b></span><span class="wc">DEBT <b class="debt">${fmt(WALLET.debt)}</b></span>`;
   ['#walletLine', '#avWallet'].forEach(x => { const e2 = $(x); if (e2) e2.innerHTML = html; });
 }
 function seatMe(p){ p.chips = WALLET.chips; p.debt = WALLET.debt; }
@@ -1293,7 +1294,7 @@ onPress('#bReload', () => {
   if (G.mode === 'client'){ NET.loanReq = (NET.loanReq || 0) + 1; NET.table && NET.table.presence({loan:NET.loanReq}).catch(() => {}); $('#bReload').disabled = true; return; }
   if (me.chips > 0) return;
   takeLoan(me);
-  toast(`PRÉSTAMO DE ${fmt(START)}`, `Debes ${fmt(me.debt)} al casino. Lo que ganes irá primero a pagar la deuda.`, 'street', 4000);
+  toast(`${fmt(START)} LOAN`, `You owe the casino ${fmt(me.debt)}. What you win will go to paying the debt first.`, 'street', 4000);
   if (G.mode === 'solo') startHand(); else render();
 });
 onPress('#dec', e => nudge(-1, e.shiftKey));
@@ -1427,35 +1428,35 @@ const HUMAN_LOOKS = [
   {shirt:0x444a5a, skin:0xe0b090, hair:'short', hairC:0xb08040, hat:'cap', hatC:0xb03030},
 ];
 const AV = {
-  h:   [['short','Corto'], ['long','Largo'], ['bun','Moño'], ['slick','Engominado'], ['bald','Calvo']],
+  h:   [['short','Short'], ['long','Long'], ['bun','Bun'], ['slick','Slicked back'], ['bald','Bald']],
   hc:  [0x1a1210, 0x3b2414, 0x6b4a2a, 0x8a3b1c, 0xc9a050, 0xd8d2c8, 0x2b4a9a, 0xc02a6a, 0xecebf5, 0x39e07a, 0x8a3be0],
   sk:  [0xf3d0b5, 0xe8c09a, 0xd2a07a, 0xb98159, 0x8d5a3b, 0x5e3a24],
-  tp:  [['tee','Camiseta'], ['suit','Traje'], ['hoodie','Sudadera'], ['vest','Chaleco'], ['leather','Cazadora de cuero'], ['stripes','Camiseta a rayas'], ['tux','Esmoquin']],
+  tp:  [['tee','T-shirt'], ['suit','Suit'], ['hoodie','Hoodie'], ['vest','Vest'], ['leather','Leather jacket'], ['stripes','Striped shirt'], ['tux','Tuxedo']],
   sh:  [0xb3202a, 0x2f7d5b, 0x2b4a9a, 0x1e2a44, 0xe0b82e, 0x7a2b5a, 0xc7702c, 0x4f6b73, 0xf1ece2, 0x222228, 0xd9a93a, 0xff4fa3],
-  hat: [['', 'Ninguno'], ['cap', 'Gorra'], ['cowboy', 'Vaquero'], ['beanie', 'Gorro de lana'], ['beret', 'Boina'], ['tophat', 'Sombrero de copa'], ['crown', 'Corona']],
+  hat: [['', 'None'], ['cap', 'Cap'], ['cowboy', 'Cowboy hat'], ['beanie', 'Beanie'], ['beret', 'Beret'], ['tophat', 'Top hat'], ['crown', 'Crown']],
   hatc:[0x6b4a2b, 0xb03030, 0x2b6cb0, 0x2f7d5b, 0x222228, 0xe0b82e, 0x7a2633],
-  gl:  [['', 'Ninguna'], ['glasses', 'Gafas'], ['shades', 'Gafas de sol'], ['gold', 'Gafas de oro']],
-  acc: [['', 'Ninguno'], ['chain', 'Cadena de oro'], ['cigar', 'Puro'], ['scarf', 'Bufanda']],
-  fh:  [['', 'Nada'], ['stache', 'Bigote'], ['beard', 'Barba']],
+  gl:  [['', 'None'], ['glasses', 'Glasses'], ['shades', 'Sunglasses'], ['gold', 'Gold glasses']],
+  acc: [['', 'None'], ['chain', 'Gold chain'], ['cigar', 'Cigar'], ['scarf', 'Scarf']],
+  fh:  [['', 'Nothing'], ['stache', 'Mustache'], ['beard', 'Beard']],
 };
 const AV_DEFAULT = {h:0, hc:1, sk:1, tp:0, sh:2, hat:0, hatc:1, gl:0, fh:0, acc:0};
 // exclusive items, bought with chips in the shop
 const SHOP = [
-  {id:'hc-plat', k:'hc', i:8, name:'Pelo platino', kind:'Color de pelo', price:100},
-  {id:'hc-neon', k:'hc', i:9, name:'Pelo verde neón', kind:'Color de pelo', price:150},
-  {id:'hc-purp', k:'hc', i:10, name:'Pelo morado', kind:'Color de pelo', price:120},
-  {id:'tp-leather', k:'tp', i:4, name:'Cazadora de cuero', kind:'Ropa', price:400},
-  {id:'tp-stripes', k:'tp', i:5, name:'Camiseta a rayas', kind:'Ropa', price:200},
-  {id:'tp-tux', k:'tp', i:6, name:'Esmoquin', kind:'Ropa', price:500},
-  {id:'sh-gold', k:'sh', i:10, name:'Ropa dorada', kind:'Color de ropa', price:350},
-  {id:'sh-pink', k:'sh', i:11, name:'Ropa rosa chicle', kind:'Color de ropa', price:150},
-  {id:'hat-beret', k:'hat', i:4, name:'Boina', kind:'Sombrero', price:180},
-  {id:'hat-top', k:'hat', i:5, name:'Sombrero de copa', kind:'Sombrero', price:300},
-  {id:'hat-crown', k:'hat', i:6, name:'Corona', kind:'Sombrero', price:500},
-  {id:'gl-gold', k:'gl', i:3, name:'Gafas de oro', kind:'Gafas', price:250},
-  {id:'acc-chain', k:'acc', i:1, name:'Cadena de oro', kind:'Accesorio', price:400},
-  {id:'acc-cigar', k:'acc', i:2, name:'Puro', kind:'Accesorio', price:150},
-  {id:'acc-scarf', k:'acc', i:3, name:'Bufanda', kind:'Accesorio', price:120},
+  {id:'hc-plat', k:'hc', i:8, name:'Platinum hair', kind:'Hair color', price:100},
+  {id:'hc-neon', k:'hc', i:9, name:'Neon green hair', kind:'Hair color', price:150},
+  {id:'hc-purp', k:'hc', i:10, name:'Purple hair', kind:'Hair color', price:120},
+  {id:'tp-leather', k:'tp', i:4, name:'Leather jacket', kind:'Outfit', price:400},
+  {id:'tp-stripes', k:'tp', i:5, name:'Striped shirt', kind:'Outfit', price:200},
+  {id:'tp-tux', k:'tp', i:6, name:'Tuxedo', kind:'Outfit', price:500},
+  {id:'sh-gold', k:'sh', i:10, name:'Gold outfit', kind:'Outfit color', price:350},
+  {id:'sh-pink', k:'sh', i:11, name:'Bubblegum pink outfit', kind:'Outfit color', price:150},
+  {id:'hat-beret', k:'hat', i:4, name:'Beret', kind:'Hat', price:180},
+  {id:'hat-top', k:'hat', i:5, name:'Top hat', kind:'Hat', price:300},
+  {id:'hat-crown', k:'hat', i:6, name:'Crown', kind:'Hat', price:500},
+  {id:'gl-gold', k:'gl', i:3, name:'Gold glasses', kind:'Glasses', price:250},
+  {id:'acc-chain', k:'acc', i:1, name:'Gold chain', kind:'Accessory', price:400},
+  {id:'acc-cigar', k:'acc', i:2, name:'Cigar', kind:'Accessory', price:150},
+  {id:'acc-scarf', k:'acc', i:3, name:'Scarf', kind:'Accessory', price:120},
 ];
 const OWNED = new Set();
 try { (JSON.parse(localStorage.getItem('lpp-owned') || '[]') || []).forEach(id => { if (SHOP.some(x => x.id === id)) OWNED.add(id); }); } catch(e){}
@@ -1546,7 +1547,7 @@ function hostSeatSync(){
       if (pe.presence.pub && !have.pub) have.pub = String(pe.presence.pub);
       if (pe.presence.av){ const av = cleanAv(pe.presence.av), sig = JSON.stringify(av); if (sig !== have.avSig){ have.av = av; have.avSig = sig; have.look = lookFromAv(av); } }
       const want = Math.floor(+pe.presence.loan || 0);
-      if (want > have.loans){ have.loans = want; if (have.chips <= 0 && (!G.running || have.out)){ takeLoan(have); toast(`${have.name.toUpperCase()} PIDE UN PRÉSTAMO`, `Debe ${fmt(have.debt)} al casino.`, 'street', 2600); } }
+      if (want > have.loans){ have.loans = want; if (have.chips <= 0 && (!G.running || have.out)){ takeLoan(have); toast(`${have.name.toUpperCase()} TAKES A LOAN`, `Owes the casino ${fmt(have.debt)}.`, 'street', 2600); } }
       continue;
     }
     let i = G.players.findIndex(q => q.kind === 'empty');
@@ -1557,7 +1558,7 @@ function hostSeatSync(){
     if (pe.presence.wal){ np.chips = clampW(wal.c); np.debt = clampW(wal.d); np.walOk = true; }
     np.av = cleanAv(pe.presence.av); np.avSig = JSON.stringify(np.av); np.look = lookFromAv(np.av); np.out = true;
     G.players[i] = np;
-    toast(`${np.name.toUpperCase()} SE SIENTA`, G.running ? 'Jugará desde la próxima mano.' : 'Bienvenido a la mesa.', 'street', 2600);
+    toast(`${np.name.toUpperCase()} SITS DOWN`, G.running ? 'Will play from the next hand.' : 'Welcome to the table.', 'street', 2600);
   }
   lobbyAnnounce();
 }
@@ -1571,7 +1572,7 @@ function hostOnPeers(ch){
     clearTimeout(p.goneT);
     p.goneT = setTimeout(() => {
       if (!isGone(p) || !G.players.includes(p)) return;
-      toast(`${p.name.toUpperCase()} SE HA IDO`, G.running ? 'Se retira de esta mano.' : '', 'street', 2600);
+      toast(`${p.name.toUpperCase()} HAS LEFT`, G.running ? 'Folds out of this hand.' : '', 'street', 2600);
       if (!G.running) vacate(p);
       render();
     }, GONE_AFTER + 200);
@@ -1596,8 +1597,8 @@ function remoteMove(p){
 }
 async function hostCreate(name, fill){
   await initKeys();
-  NET.code = 'mesa-' + Math.random().toString(36).slice(2, 7);
-  NET.tableName = String(name || '').replace(/[^\p{L}\p{N} _.'-]/gu, '').trim().slice(0, 20) || 'Mesa de ' + myName();
+  NET.code = 'table-' + Math.random().toString(36).slice(2, 7);
+  NET.tableName = String(name || '').replace(/[^\p{L}\p{N} _.'-]/gu, '').trim().slice(0, 20) || myName() + "'s table";
   NET.table = await NET.room.join(NET.code, {host:true});
   G.mode = 'host'; G.fill = fill;
   const ps = [newPlayer({name:myName()})]; G.players = ps; ps[0].av = ownAv(G.av); seatMe(ps[0]);
@@ -1606,9 +1607,9 @@ async function hostCreate(name, fill){
   NET.table.onPeers(ch => { const me = ch.peers.find(x => x.sameTab); if (me) NET.myPeer = me.peer; hostOnPeers(ch); readChat(ch.peers); });
   NET.table.presence({role:'host', pub:myPub}).catch(() => {});
   const link = location.origin + location.pathname + '?mesa=' + encodeURIComponent(NET.code);
-  $('#tableInfo').innerHTML = `Mesa <b>${esc(NET.tableName)}</b> · código <b>${esc(NET.code)}</b><br><button class="btn tiny" id="bCopy">COPIAR ENLACE DE INVITACIÓN</button><br><span class="dimtxt">Mantén esta página abierta: si la cierras o la recargas, la mesa se cierra.</span>`;
-  const showLink = () => { const t = $('#tableInfo'); if (t.querySelector('.linkbox')) return; const box = document.createElement('input'); box.className = 'linkbox'; box.readOnly = true; box.value = link; box.setAttribute('aria-label', 'Enlace de invitación'); box.style.cssText = 'width:100%;margin-top:4px;font:600 11px var(--f-ui);background:rgba(0,0,0,.4);color:var(--txt);border:1px solid rgba(217,180,90,.45);border-radius:5px;padding:3px 5px'; t.appendChild(box); box.focus(); box.select(); };
-  $('#bCopy').onclick = () => { try { navigator.clipboard.writeText(link).then(() => { $('#bCopy').textContent = '¡ENLACE COPIADO!'; }, () => { $('#bCopy').textContent = 'CÓPIALO AQUÍ ABAJO:'; showLink(); }); } catch(e){ $('#bCopy').textContent = 'CÓPIALO AQUÍ ABAJO:'; showLink(); } };
+  $('#tableInfo').innerHTML = `Table <b>${esc(NET.tableName)}</b> · code <b>${esc(NET.code)}</b><br><button class="btn tiny" id="bCopy">COPY INVITE LINK</button><br><span class="dimtxt">Keep this page open: if you close or reload it, the table closes.</span>`;
+  const showLink = () => { const t = $('#tableInfo'); if (t.querySelector('.linkbox')) return; const box = document.createElement('input'); box.className = 'linkbox'; box.readOnly = true; box.value = link; box.setAttribute('aria-label', 'Invite link'); box.style.cssText = 'width:100%;margin-top:4px;font:600 11px var(--f-ui);background:rgba(0,0,0,.4);color:var(--txt);border:1px solid rgba(217,180,90,.45);border-radius:5px;padding:3px 5px'; t.appendChild(box); box.focus(); box.select(); };
+  $('#bCopy').onclick = () => { try { navigator.clipboard.writeText(link).then(() => { $('#bCopy').textContent = 'LINK COPIED!'; }, () => { $('#bCopy').textContent = 'COPY IT BELOW:'; showLink(); }); } catch(e){ $('#bCopy').textContent = 'COPY IT BELOW:'; showLink(); } };
   $('#tableInfo').hidden = false;
   lobbyAnnounce();
   render();
@@ -1622,7 +1623,7 @@ async function clientJoin(code){
   NET.table = await NET.room.join(code);
   G.mode = 'client'; G.players.forEach(p => p.hole = []); clearCards();
   $('#fastL').hidden = true;
-  $('#tableInfo').innerHTML = `Mesa: <b>${esc(code)}</b>`; $('#tableInfo').hidden = false;
+  $('#tableInfo').innerHTML = `Table: <b>${esc(code)}</b>`; $('#tableInfo').hidden = false;
   history.replaceState(null, '', location.pathname);
   G.handOver = true; G.waitPlayers = true; G.result = null;
   NET.table.presence({role:'player', v:PROTO, name:myName(), pub:myPub, av:ownAv(G.av), wal:{c:WALLET.chips, d:WALLET.debt}}).catch(() => {});
@@ -1632,7 +1633,7 @@ async function clientJoin(code){
     const host = ch.peers.find(x => x.presence.role === 'host' && !x.sameTab);
     if (!host){
       if (NET.hadHost && !NET.lostT){
-        toast('RECONECTANDO CON LA MESA…', 'Se ha cortado la conexión con el anfitrión. Esperando a que vuelva.', 'street', 6000);
+        toast('RECONNECTING TO THE TABLE…', 'The connection to the host was lost. Waiting for it to come back.', 'street', 6000);
         NET.lostT = setTimeout(() => { NET.lostT = null; if (!NET.table || !NET.table.peers().some(x => x.presence.role === 'host' && !x.sameTab)) hostGone(); }, 30000);
       }
       return;
@@ -1642,19 +1643,19 @@ async function clientJoin(code){
     const S = host.presence.S;
     if (S && S !== NET.lastS){ NET.lastS = S; applyState(S); }
   });
-  setTimeout(() => { if (!NET.hadHost) hostGone('No se encontró esa mesa. Revisa el código o elige otra de la lista.'); }, 9000);
+  setTimeout(() => { if (!NET.hadHost) hostGone('That table was not found. Check the code or pick another one from the list.'); }, 9000);
   render();
 }
 function hostGone(text){
   G.waiting = null;
-  $('#netErr').textContent = text || 'El anfitrión ha cerrado la mesa.'; $('#netErr').hidden = false;
+  $('#netErr').textContent = text || 'The host has closed the table.'; $('#netErr').hidden = false;
   if (NET.table) NET.table.leave().catch(() => {});
   NET.table = null;
   setMenu(true);
 }
 async function applyState(S){
   if (!S || !Array.isArray(S.P) || S.P.length !== N) return;
-  if (S.v !== PROTO){ hostGone('Esta mesa usa otra versión del juego. Recargad todos la página con Ctrl + F5 y volved a entrar. Tu dinero no ha cambiado.'); return; }
+  if (S.v !== PROTO){ hostGone('This table uses another version of the game. Everyone should reload the page with Ctrl + F5 and join again. Your money has not changed.'); return; }
   const myTag = myPub ? myPub.slice(-16) : '';
   const mySeat = S.P.findIndex(q => (q.pe && q.pe === NET.myPeer) || (myTag && q.pb === myTag));
   if (mySeat >= 0){
@@ -1735,14 +1736,14 @@ function renderTables(peers){
   const list = peers.filter(x => x.presence && x.presence.table && typeof x.presence.table.code === 'string' && !x.sameTab);
   const sig = JSON.stringify(list.map(x => x.presence.table));
   if (sig === NET.tablesSig) return; NET.tablesSig = sig;
-  if (!list.length){ box.innerHTML = '<div class="dimtxt">No hay mesas abiertas ahora mismo. Crea una o únete con un código.</div>'; return; }
+  if (!list.length){ box.innerHTML = '<div class="dimtxt">No open tables right now. Create one or join with a code.</div>'; return; }
   box.innerHTML = '';
   for (const x of list){
     const t = x.presence.table; const n = Math.max(0, Math.min(N, +t.n || 0));
     const row = document.createElement('div'); row.className = 'trow';
     const nm = document.createElement('span'); nm.className = 'tn'; nm.textContent = String(t.name || t.code).slice(0, 24);
-    const ct = document.createElement('span'); ct.className = 'tc'; ct.textContent = `${n}/${N} jugadores`;
-    const b = document.createElement('button'); b.className = 'btn tiny'; b.textContent = n >= N ? 'MIRAR' : 'UNIRSE';
+    const ct = document.createElement('span'); ct.className = 'tc'; ct.textContent = `${n}/${N} players`;
+    const b = document.createElement('button'); b.className = 'btn tiny'; b.textContent = n >= N ? 'WATCH' : 'JOIN';
     b.onclick = () => startOnline(() => clientJoin(String(t.code).toLowerCase()));
     row.append(nm, ct, b); box.appendChild(row);
   }
@@ -1752,10 +1753,10 @@ async function startOnline(fn){
   if (connecting || NET.table) return;
   connecting = true;
   const btns = ['#bJoinCode', '#bStart'].map(x => $(x)), labels = btns.map(b => b.textContent);
-  btns.forEach(b => { b.disabled = true; b.textContent = 'CONECTANDO…'; });
+  btns.forEach(b => { b.disabled = true; b.textContent = 'CONNECTING…'; });
   $('#netErr').hidden = true;
   try { saveName(); await fn(); setMenu(false); }
-  catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'No hay ninguna mesa abierta con ese código. Quien la creó tiene que seguir con la página del juego abierta: si la cierra, la recarga o abre el enlace en esa misma pestaña, la mesa desaparece y hay que crear otra.' : e && e.code === 'sin-conexion' ? 'La mesa existe, pero no se pudo conectar con ella. Suele pasar con cortafuegos estrictos (wifi del trabajo o del instituto, algunas redes móviles). Prueba con otra red o vuelve a intentarlo.' : e && e.code === 'servidor' ? 'No se pudo contactar con ningún servidor de mesas. Algunas redes (wifi del instituto o del trabajo) bloquean estas conexiones: prueba con otra red o con los datos del móvil.' : e && e.code === 'unavailable-id' ? 'Ese código ya está en uso. Vuelve a intentarlo.' : 'No se pudo conectar (' + (e && e.code || 'error') + '). Inténtalo de nuevo.'; $('#netErr').hidden = false; }
+  catch(e){ $('#netErr').textContent = e && e.code === 'mesa-no-encontrada' ? 'There is no open table with that code. Whoever created it must keep the game page open: if they close it, reload it or open the link in that same tab, the table disappears and a new one has to be created.' : e && e.code === 'sin-conexion' ? 'The table exists, but we could not connect to it. This usually happens with strict firewalls (work or school wifi, some mobile networks). Try another network or try again.' : e && e.code === 'servidor' ? 'Could not reach any table server. Some networks (school or work wifi) block these connections: try another network or your mobile data.' : e && e.code === 'unavailable-id' ? 'That code is already in use. Please try again.' : 'Could not connect (' + (e && e.code || 'error') + '). Please try again.'; $('#netErr').hidden = false; }
   finally { connecting = false; btns.forEach((b, k) => { b.disabled = false; b.textContent = labels[k]; }); }
 }
 function saveName(){ try { localStorage.setItem('mv-name', $('#nameIn').value); } catch(e){} }
@@ -1780,8 +1781,8 @@ function persDesc(){
 }
 function buildBotRows(){
   const opts = PERS.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  let h = `<span class="bl all">TODOS</span><select id="botAll" aria-label="Personalidad de todos los bots"><option value="">— elegir para los 4 —</option>${opts}</select>`;
-  for (let i=1;i<N;i++) h += `<span class="bl">Silla ${SEATL[i].toLowerCase()}</span><select id="bot${i}" aria-label="Personalidad del bot de la silla ${SEATL[i].toLowerCase()}">${opts}</select>`;
+  let h = `<span class="bl all">ALL</span><select id="botAll" aria-label="Personality of all bots"><option value="">— set all 4 —</option>${opts}</select>`;
+  for (let i=1;i<N;i++) h += `<span class="bl">${SEATL[i]} seat</span><select id="bot${i}" aria-label="Personality of the ${SEATL[i].toLowerCase()} seat bot">${opts}</select>`;
   $('#botRows').innerHTML = h;
   for (let i=1;i<N;i++){ const el = $('#bot' + i); el.value = G.botPrefs[i-1]; el.onchange = () => { G.botPrefs[i-1] = el.value; saveBots(); persDesc(); }; }
   $('#botAll').onchange = e => { if (!e.target.value) return; G.botPrefs = G.botPrefs.map(() => e.target.value); for (let i=1;i<N;i++) $('#bot' + i).value = e.target.value; e.target.value = ''; saveBots(); persDesc(); };
@@ -1824,24 +1825,24 @@ function setupMenu(){
   $('#backAvatar').onclick = () => { G.tryOn = null; renderBuyBar(); showScreen('#scrHome'); };
   showWallet();
   let target = 'solo';
-  $('#goSolo').onclick = () => { saveName(); target = 'solo'; $('#setupTitle').textContent = 'PARTIDA SOLO'; $('#botCfg').hidden = false; $('#bStart').textContent = 'EMPEZAR PARTIDA'; showScreen('#scrSetup'); };
+  $('#goSolo').onclick = () => { saveName(); target = 'solo'; $('#setupTitle').textContent = 'SOLO GAME'; $('#botCfg').hidden = false; $('#bStart').textContent = 'START GAME'; showScreen('#scrSetup'); };
   $('#goOnline').onclick = () => { saveName(); showScreen('#scrOnline'); };
   $('#backSetup').onclick = () => showScreen(target === 'solo' ? '#scrHome' : '#scrOnline');
   $('#backOnline').onclick = () => showScreen('#scrHome');
-  $('#bCreate').onclick = () => { target = 'host'; $('#setupTitle').textContent = 'TU MESA ONLINE'; $('#botCfg').hidden = !$('#fillBots').checked; $('#bStart').textContent = 'CREAR MESA'; showScreen('#scrSetup'); };
+  $('#bCreate').onclick = () => { target = 'host'; $('#setupTitle').textContent = 'YOUR ONLINE TABLE'; $('#botCfg').hidden = !$('#fillBots').checked; $('#bStart').textContent = 'CREATE TABLE'; showScreen('#scrSetup'); };
   $('#bStart').onclick = () => {
     if (target === 'solo'){ setMenu(false); G.mode = 'solo'; freshBots(); startHand(); }
     else startOnline(() => hostCreate($('#tableName').value, $('#fillBots').checked));
   };
-  $('#bJoinCode').onclick = () => { const c = $('#codeIn').value.trim().toLowerCase(); if (/^[a-z0-9][a-z0-9_.-]{0,47}$/.test(c)) startOnline(() => clientJoin(c)); else { $('#netErr').textContent = 'Escribe un código válido, por ejemplo mesa-ab12c.'; $('#netErr').hidden = false; } };
+  $('#bJoinCode').onclick = () => { const c = $('#codeIn').value.trim().toLowerCase(); if (/^[a-z0-9][a-z0-9_.-]{0,47}$/.test(c)) startOnline(() => clientJoin(c)); else { $('#netErr').textContent = 'Type a valid code, for example table-ab12c.'; $('#netErr').hidden = false; } };
   $('#bLeave').onclick = () => location.reload();
   const use = Promise.resolve(window.mqtt ? makeMqttRoom() : null);
   use.then(room => {
-    if (!room){ $('#onlineOff').textContent = 'No se pudo cargar el modo online (revisa tu conexión). Puedes jugar solo contra bots.'; return; }
+    if (!room){ $('#onlineOff').textContent = 'Online mode could not load (check your connection). You can play solo against bots.'; return; }
     NET.room = room;
     $('#onlineOff').hidden = true; $('#onlineBox').hidden = false;
     const inv = new URLSearchParams(location.search).get('mesa');
-    if (inv && /^[a-z0-9][a-z0-9_.-]{0,47}$/.test(inv)){ $('#codeIn').value = inv; $('#invite').hidden = false; $('#invite').innerHTML = `Te han invitado a la mesa <b>${esc(inv)}</b>. Pulsa <b>UNIRSE</b> para entrar.`; showScreen('#scrOnline'); }
+    if (inv && /^[a-z0-9][a-z0-9_.-]{0,47}$/.test(inv)){ $('#codeIn').value = inv; $('#invite').hidden = false; $('#invite').innerHTML = `You have been invited to table <b>${esc(inv)}</b>. Press <b>JOIN</b> to sit down.`; showScreen('#scrOnline'); }
 
   }).catch(() => {});
 }
@@ -1997,7 +1998,7 @@ const feltTex = canvasTex(512, 512, (x, w, h) => {
   x.strokeStyle = '#e8c35a'; x.lineWidth = 3; x.beginPath(); x.arc(w/2, h/2, w*0.39, 0, Math.PI*2); x.stroke();
   x.save(); x.translate(w/2, h*0.22); x.scale(0.62, 1);
   x.fillStyle = 'rgba(232,195,90,.75)'; x.font = '700 38px "Barlow Condensed", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.font = '700 17px "Barlow Condensed", Arial, sans-serif'; x.fillStyle = 'rgba(232,195,90,.55)'; x.fillText('TEXAS HOLD’EM  ·  CIEGAS 10 / 20', 0, 0);
+  x.font = '700 17px "Barlow Condensed", Arial, sans-serif'; x.fillStyle = 'rgba(232,195,90,.55)'; x.fillText('TEXAS HOLD’EM  ·  BLINDS 10 / 20', 0, 0);
   x.restore();
 });
 feltTex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -2419,7 +2420,7 @@ function render(){
     el.hidden = p.kind === 'empty';
     const txt = p.last.toUpperCase(); const pop = txt && el.dataset.last !== txt;
     el.dataset.last = txt;
-    el.innerHTML = `<div class="act${pop ? ' pop' : ''}">${txt}</div>${p.kind === 'remote' ? `<div class="nm">${esc(p.name)}</div>` : ''}<div class="ck">${p.out && p.kind === 'remote' && !G.handOver && p.hole.length === 0 ? 'ESPERANDO' : fmt(p.chips)}</div>`;
+    el.innerHTML = `<div class="act${pop ? ' pop' : ''}">${txt}</div>${p.kind === 'remote' ? `<div class="nm">${esc(p.name)}</div>` : ''}<div class="ck">${p.out && p.kind === 'remote' && !G.handOver && p.hole.length === 0 ? 'WAITING' : fmt(p.chips)}</div>`;
   });
   const hc = (c, dim) => { if (!c) return '<div class="hc slot"></div>'; const k = key(c); const nw = !G.seenHud.has(k); G.seenHud.add(k);
     const pickable = canPick() && !dim;
@@ -2453,7 +2454,7 @@ function renderControls(){
   $('#acts').hidden = G.handOver || watching;
   const enough = G.players.filter(p => p.kind !== 'empty' && p.chips > 0).length >= 2;
   $('#nextBox').hidden = !G.handOver || (broke && G.mode === 'solo') || G.mode === 'client' || (G.waitPlayers && !enough);
-  $('#bNext').textContent = G.waitPlayers ? 'EMPEZAR PARTIDA' : 'SIGUIENTE MANO';
+  $('#bNext').textContent = G.waitPlayers ? 'START GAME' : 'NEXT HAND';
   $('#brokeBox').hidden = !broke;
   if (!broke) $('#bReload').disabled = false;
   if (broke) $('#acts').hidden = true;
@@ -2464,38 +2465,38 @@ function renderControls(){
   setDis('#bCall', !myTurn); setDis('#bFold', !myTurn); setDis('#bRaise', !raiseOk); setDis('#bAll', !raiseOk); setDis('#dec', !raiseOk); setDis('#inc', !raiseOk);
   if (raiseOk) setRaise(G.raiseTo ?? raiseBounds().min); else $('#raiseVal').textContent = '—';
   let msg = '';
-  if (broke) msg = 'SIN FICHAS: NO PUEDES JUGAR';
-  else if (watching) msg = 'MIRANDO LA MESA';
-  else if (G.waitPlayers) msg = 'ESPERANDO JUGADORES';
-  else if (G.handOver) msg = 'MANO TERMINADA';
-  else if (myTurn) msg = `TU TURNO · ${G.street.toUpperCase()}`;
-  else if (me.folded) msg = 'HICISTE FOLD';
-  else if (me.allIn) msg = 'ESTÁS ALL-IN';
-  else if (G.turn >= 0) msg = 'RIVAL PENSANDO…';
-  else msg = 'REPARTIENDO…';
+  if (broke) msg = 'OUT OF CHIPS: YOU CAN\'T PLAY';
+  else if (watching) msg = 'WATCHING THE TABLE';
+  else if (G.waitPlayers) msg = 'WAITING FOR PLAYERS';
+  else if (G.handOver) msg = 'HAND OVER';
+  else if (myTurn) msg = `YOUR TURN · ${G.street.toUpperCase()}`;
+  else if (me.folded) msg = 'YOU FOLDED';
+  else if (me.allIn) msg = 'YOU ARE ALL-IN';
+  else if (G.turn >= 0) msg = 'OPPONENT THINKING…';
+  else msg = 'DEALING…';
   $('#msg').textContent = msg;
   let ex = '';
   if (myTurn){
     if (toCall === 0) ex = G.street === 'preflop'
-      ? 'Ya pusiste la ciega grande y nadie ha subido: puedes hacer <b>CHECK</b> y ver el flop sin poner más.'
-      : 'Nadie ha apostado en esta ronda: puedes hacer <b>CHECK</b> y seguir gratis. Apostar (<b>BET</b>) es opcional.';
-    else if (G.street === 'preflop' && G.maxBet === BB) ex = `La ciega grande (${fmt(BB)}) es una apuesta obligatoria. Para ver el flop tienes que igualarla: <b>CALL ${fmt(toCall)}</b>. Subir (<b>RAISE</b>) es opcional.`;
-    else ex = `Hay una apuesta de ${fmt(G.maxBet)} en esta ronda. Para seguir tienes que igualarla: <b>CALL ${fmt(toCall)}</b>. Si no quieres, <b>FOLD</b>. Subir es opcional.`;
-    if (G.mode === 'client') ex += ' Tienes 45 segundos para decidir.';
-  } else if (watching) ex = 'La mesa está llena o aún no tienes sitio. Te sentarás cuando quede uno libre.';
-  else if (G.waitPlayers) ex = G.mode === 'client' ? 'Esperando a que el anfitrión empiece la partida.' : enough ? 'Ya hay jugadores suficientes: pulsa <b>EMPEZAR PARTIDA</b>.' : `Comparte el código de la mesa <b>${esc(NET.code)}</b> para que se unan. Hace falta al menos otro jugador.`;
-  else if (G.handOver && G.mode === 'client') ex = 'La siguiente mano empezará enseguida.';
-  else if (G.handOver && G.mode === 'host' && G.players.some(p => p.kind === 'remote')) ex = 'La siguiente mano empieza sola en unos segundos, o pulsa <b>SIGUIENTE MANO</b>.';
-  else if (G.handOver && !broke) ex = 'Pulsa <b>SIGUIENTE MANO</b> para repartir otra vez.';
-  else if (broke) ex = `Sin fichas no puedes seguir jugando. Puedes pedir un <b>préstamo de ${fmt(START)}</b> al casino: lo que ganes después irá primero a pagar la deuda${me.debt > 0 ? ` (ya debes ${fmt(me.debt)})` : ''}.`;
-  else if (me.folded) ex = 'Ya no juegas esta mano. Mira cómo termina.';
+      ? 'You already posted the big blind and nobody raised: you can <b>CHECK</b> and see the flop without paying more.'
+      : 'Nobody has bet this round: you can <b>CHECK</b> and stay in for free. Betting (<b>BET</b>) is optional.';
+    else if (G.street === 'preflop' && G.maxBet === BB) ex = `The big blind (${fmt(BB)}) is a forced bet. To see the flop you have to match it: <b>CALL ${fmt(toCall)}</b>. Raising (<b>RAISE</b>) is optional.`;
+    else ex = `There is a ${fmt(G.maxBet)} bet this round. To stay in you have to match it: <b>CALL ${fmt(toCall)}</b>. If you don't want to, <b>FOLD</b>. Raising is optional.`;
+    if (G.mode === 'client') ex += ' You have 45 seconds to decide.';
+  } else if (watching) ex = 'The table is full or you don\'t have a seat yet. You will sit down when one is free.';
+  else if (G.waitPlayers) ex = G.mode === 'client' ? 'Waiting for the host to start the game.' : enough ? 'There are enough players: press <b>START GAME</b>.' : `Share the table code <b>${esc(NET.code)}</b> so others can join. At least one more player is needed.`;
+  else if (G.handOver && G.mode === 'client') ex = 'The next hand will start shortly.';
+  else if (G.handOver && G.mode === 'host' && G.players.some(p => p.kind === 'remote')) ex = 'The next hand starts by itself in a few seconds, or press <b>NEXT HAND</b>.';
+  else if (G.handOver && !broke) ex = 'Press <b>NEXT HAND</b> to deal again.';
+  else if (broke) ex = `Without chips you can't keep playing. You can take a <b>${fmt(START)} loan</b> from the casino: what you win afterwards goes to paying the debt first${me.debt > 0 ? ` (you already owe ${fmt(me.debt)})` : ''}.`;
+  else if (me.folded) ex = 'You are out of this hand. Watch how it ends.';
   $('#explain').innerHTML = ex;
   let hint = ''; G.myCore = new Set();
   if (G.manual && me.hole.length === 2 && !me.hole[0].hid && !me.folded){
     const pick = pickFrom([...G.sel], me);
-    hint = pick ? `TU JUGADA: ${describe(evalPick(pick)).toUpperCase()}`
-      : G.board.length >= 3 ? `TOCA LAS CARTAS PARA ELEGIR TU JUGADA · ${G.sel.size}/5`
-      : `PODRÁS ELEGIR TU JUGADA CUANDO SALGA EL FLOP${G.sel.size ? ` · ${G.sel.size}/5` : ''}`;
+    hint = pick ? `YOUR HAND: ${describe(evalPick(pick)).toUpperCase()}`
+      : G.board.length >= 3 ? `TAP THE CARDS TO PICK YOUR HAND · ${G.sel.size}/5`
+      : `YOU CAN PICK YOUR HAND ONCE THE FLOP IS DEALT${G.sel.size ? ` · ${G.sel.size}/5` : ''}`;
   }
   if (G.help && me.hole.length === 2 && !me.hole[0].hid && !me.folded){
     let v;
@@ -2503,16 +2504,16 @@ function renderControls(){
       const b = best(me.hole.concat(G.board));
       const mine = new Set(me.hole.map(key));
       const shared = b.cat > 0 && !coreCards(b).some(c => mine.has(key(c)));
-      v = (b.cat === 0 ? `Carta más alta: ${NAME(b.tb[0])}` : describe(b)) + (shared ? ' (está en la mesa: la tienen todos)' : '');
+      v = (b.cat === 0 ? `High card: ${NAME(b.tb[0])}` : describe(b)) + (shared ? ' (it is on the board: everyone has it)' : '');
       const same = pickFrom([...G.sel], me) && b.cards.every(c => G.sel.has(key(c)));
-      v = (G.manual ? 'Recomendado: ' : 'Tu jugada: ') + v;
-      hint += `<div class="rec"><small>${v.toUpperCase()}${myTurn && G.hintEq != null ? ` · PROB. DE GANAR ${Math.round(G.hintEq*100)}%` : ''}</small>${canPick() && !same ? ' <button class="btn tiny" id="bUseRec">USAR</button>' : ''}</div>`;
+      v = (G.manual ? 'Recommended: ' : 'Your hand: ') + v;
+      hint += `<div class="rec"><small>${v.toUpperCase()}${myTurn && G.hintEq != null ? ` · WIN CHANCE ${Math.round(G.hintEq*100)}%` : ''}</small>${canPick() && !same ? ' <button class="btn tiny" id="bUseRec">USE</button>' : ''}</div>`;
       if (!G.manual) hint = hint.replace('<div class="rec"><small>', '<div>').replace('</small></div>', '</div>');
-    } else hint += `<div class="rec"><small>${describeHole(me.hole).toUpperCase()}${myTurn && G.hintEq != null ? ` · PROB. DE GANAR ${Math.round(G.hintEq*100)}%` : ''}</small></div>`;
+    } else hint += `<div class="rec"><small>${describeHole(me.hole).toUpperCase()}${myTurn && G.hintEq != null ? ` · WIN CHANCE ${Math.round(G.hintEq*100)}%` : ''}</small></div>`;
   }
   // covered cards: say nothing about the hand, but keep the "use" button so it can still be pressed
   $('#hint').innerHTML = coverMine() && !G.peek && hint
-    ? 'PASA EL RATÓN POR TUS CARTAS PARA VERLAS' + (hint.includes('id="bUseRec"') ? '<div class="rec"><button class="btn tiny" id="bUseRec">USAR LA JUGADA RECOMENDADA</button></div>' : '')
+    ? 'HOVER OVER YOUR CARDS TO SEE THEM' + (hint.includes('id="bUseRec"') ? '<div class="rec"><button class="btn tiny" id="bUseRec">USE THE RECOMMENDED HAND</button></div>' : '')
     : hint;
 }
 
@@ -2565,7 +2566,7 @@ function frame(){
 }
 
 /* ---------- boot ---------- */
-G.players[0] = newPlayer({name:'Tú'}); seatMe(G.players[0]);
+G.players[0] = newPlayer({name:'You'}); seatMe(G.players[0]);
 for (let i=1;i<N;i++) G.players[i] = makeBot(i);
 G.dealer = Math.random()*N|0;
 resize();
@@ -2596,27 +2597,27 @@ function saveAv(){ try { localStorage.setItem('mv-avatar', JSON.stringify(G.av))
 function buildShop(){
   showWallet();
   const inDebt = WALLET.debt > 0;
-  $('#shopNote').innerHTML = inDebt ? `<b class="dn">Tienes una deuda de ${fmt(WALLET.debt)}.</b> No puedes comprar hasta saldarla: gana manos y se irá pagando sola.` : 'Objetos exclusivos para tu avatar. Se ven en las mesas online y luego se eligen en "Personalizar mi avatar".';
+  $('#shopNote').innerHTML = inDebt ? `<b class="dn">You have a debt of ${fmt(WALLET.debt)}.</b> You can't buy until it is paid off: win hands and it pays itself off.` : 'Exclusive items for your avatar. They show at online tables and are chosen in "Customize my avatar".';
   $('#shopGrid').innerHTML = SHOP.map(it => {
     const own = OWNED.has(it.id), can = !own && !inDebt && WALLET.chips >= it.price;
     return `<div class="item${own ? ' own' : ''}"><span class="ik">${it.kind}</span><b>${it.name}</b><span class="ip">${fmt(it.price)}</span>
-      <button class="btn tiny${own ? '' : ' raise'}" data-buy="${it.id}" ${own || !can ? 'disabled' : ''}>${own ? 'COMPRADO' : inDebt ? 'CON DEUDA NO' : WALLET.chips < it.price ? 'SIN FICHAS' : 'COMPRAR'}</button></div>`;
+      <button class="btn tiny${own ? '' : ' raise'}" data-buy="${it.id}" ${own || !can ? 'disabled' : ''}>${own ? 'OWNED' : inDebt ? 'IN DEBT' : WALLET.chips < it.price ? 'NO CHIPS' : 'BUY'}</button></div>`;
   }).join('');
 }
 function renderBuyBar(){
   const box = $('#avBuy'); const t = G.tryOn;
   if (!t){ box.hidden = true; return; }
   const it = shopItem(t.k, t.i);
-  const why = WALLET.debt > 0 ? `Tienes una deuda de <b class="dn">${fmt(WALLET.debt)}</b>. No puedes comprar hasta saldarla.` : WALLET.chips < it.price ? `No tienes fichas suficientes: te faltan <b class="dn">${fmt(it.price - WALLET.chips)}</b>.` : '';
+  const why = WALLET.debt > 0 ? `You have a debt of <b class="dn">${fmt(WALLET.debt)}</b>. You can't buy until it is paid off.` : WALLET.chips < it.price ? `You don't have enough chips: you are <b class="dn">${fmt(it.price - WALLET.chips)}</b> short.` : '';
   box.innerHTML = `<div class="buycard panel"><div class="in">
       <span class="ik">${it.kind}</span>
       <h4 id="buyTitle">${it.name}</h4>
       <div class="price">${fmt(it.price)}</div>
-      <div class="have">Tienes <b class="money">${fmt(WALLET.chips)}</b>${why ? '' : ` · te quedarán <b class="money">${fmt(WALLET.chips - it.price)}</b>`}</div>
+      <div class="have">You have <b class="money">${fmt(WALLET.chips)}</b>${why ? '' : ` · you will have <b class="money">${fmt(WALLET.chips - it.price)}</b> left`}</div>
       ${why ? `<div class="no">${why}</div>` : ''}
       <div class="row">
-        ${why ? '' : `<button class="btn raise wide" data-buy="${it.id}">COMPRAR</button>`}
-        <button class="btn wide" id="bTryOff">${why ? 'CERRAR' : 'CANCELAR'}</button>
+        ${why ? '' : `<button class="btn raise wide" data-buy="${it.id}">BUY</button>`}
+        <button class="btn wide" id="bTryOff">${why ? 'CLOSE' : 'CANCEL'}</button>
       </div>
     </div></div>`;
   box.hidden = false;
@@ -2643,9 +2644,9 @@ function buildAvatarOpts(){
   const sws = (k, label) => `<span class="bl">${label}</span><div class="sws" role="group" aria-label="${label}">${AV[k].map((c, i) => { const it = shopItem(k, i), lk = locked(k, i);
     return `<button class="sw${it ? ' vip' : ''}${lk ? ' lockd' : ''}" data-k="${k}" data-i="${i}" ${lk ? `data-price="$${it.price}"` : ''} style="background:${hex(c)}" aria-label="${label} ${it ? it.name : i + 1}${lk ? ', ' + fmt(it.price) : ''}" title="${it ? it.name + (lk ? ' · ' + fmt(it.price) : ' ★') : ''}"></button>`; }).join('')}</div>`;
   G.av = ownAv(G.av);
-  $('#avOpts').innerHTML = sel('h', 'Pelo') + sws('hc', 'Color de pelo') + sws('sk', 'Piel') + sel('tp', 'Ropa') + sws('sh', 'Color de la ropa') + sel('hat', 'Sombrero') + `<span class="bl hatc">Color del sombrero</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Gafas') + sel('acc', 'Accesorio') + sel('fh', 'Cara');
-  const hcGroup = $('#avOpts [data-k="hatc"]').parentElement; hcGroup.classList.add('hatc'); hcGroup.setAttribute('aria-label', 'Color del sombrero');
-  document.querySelectorAll('#avOpts [data-k="hatc"]').forEach((el, i) => el.setAttribute('aria-label', 'Color del sombrero ' + (i + 1)));
+  $('#avOpts').innerHTML = sel('h', 'Hair') + sws('hc', 'Hair color') + sws('sk', 'Skin') + sel('tp', 'Outfit') + sws('sh', 'Outfit color') + sel('hat', 'Hat') + `<span class="bl hatc">Hat color</span>` + sws('hatc', '').replace('<span class="bl"></span>', '') + sel('gl', 'Glasses') + sel('acc', 'Accessory') + sel('fh', 'Face');
+  const hcGroup = $('#avOpts [data-k="hatc"]').parentElement; hcGroup.classList.add('hatc'); hcGroup.setAttribute('aria-label', 'Hat color');
+  document.querySelectorAll('#avOpts [data-k="hatc"]').forEach((el, i) => el.setAttribute('aria-label', 'Hat color ' + (i + 1)));
   syncAvatarOpts();
   if (buildAvatarOpts.done) return; buildAvatarOpts.done = true;
   const pick = (k, i) => {
@@ -2668,14 +2669,14 @@ function syncAvatarOpts(){
 const CHAT = {n:0, last:0, seen:{}};
 const cleanMsg = t => String(t || '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f]/g, '').trim().slice(0, 20);
 const LINES = {
-  raise:   ['Subo.', 'Vamos fuerte.', '¿Te atreves?', 'Esta es mía.', 'Subamos esto.', 'A ver qué haces.'],
-  allin:   ['All-in.', 'Todo dentro.', 'Me lo juego todo.', 'Va todo.'],
-  call:    ['Te veo.', 'Pago.', 'No me lo creo.', 'Voy.', 'Enséñamelas.'],
-  fold:    ['Me retiro.', 'Toda tuya.', 'Hoy no.', 'Paso de esto.', 'Demasiado para mí.'],
-  win:     ['¡Gracias!', 'Así se juega.', 'Lo sabía.', 'Para mí.', 'Bien jugado.'],
-  bluffwin:['Era un farol.', 'No tenía nada.', 'Me lo he inventado.'],
-  lose:    ['Qué suerte tienes.', 'Increíble…', 'La próxima es mía.', 'Vaya mano…', 'Ufff.'],
-  tilt:    ['Esto está trucado.', 'Otra vez…', 'No puede ser.'],
+  raise:   ['Raise.', 'Going big.', 'You dare?', 'This one\'s mine.', 'Let\'s pump it.', 'Your move.'],
+  allin:   ['All-in.', 'All of it.', 'I\'m all in.', 'Everything.'],
+  call:    ['I\'ll see you.', 'Call.', 'I don\'t buy it.', 'I\'m in.', 'Show me.'],
+  fold:    ['I fold.', 'All yours.', 'Not today.', 'I\'m out.', 'Too rich for me.'],
+  win:     ['Thanks!', 'That\'s poker.', 'Knew it.', 'Mine.', 'Well played.'],
+  bluffwin:['It was a bluff.', 'I had nothing.', 'Made it all up.'],
+  lose:    ['Lucky you.', 'Unbelievable…', 'Next one\'s mine.', 'What a hand…', 'Ugh.'],
+  tilt:    ['This is rigged.', 'Again…', 'No way.'],
 };
 try { G.talk = localStorage.getItem('lpp-talk') !== '0'; } catch(e){ G.talk = true; }
 function setTalk(on){ G.talk = on; try { localStorage.setItem('lpp-talk', on ? '1' : '0'); } catch(e){} document.querySelectorAll('#talkT, #optTalk').forEach(el => el.checked = on); }
@@ -2726,7 +2727,7 @@ function sendChat(){
   const nowT = Date.now(); if (nowT - CHAT.last < 1500) return;   // no spamming
   CHAT.last = nowT; CHAT.n++;
   NET.table.presence({say:{n:CHAT.n, t}}).catch(() => {});
-  $('#chatIn').value = ''; $('#chatCnt').textContent = 'Enviado';
+  $('#chatIn').value = ''; $('#chatCnt').textContent = 'Sent';
   setTimeout(() => { if (!$('#chatIn').value) $('#chatCnt').textContent = '0/20'; }, 1500);
 }
 $('#bSay').onclick = sendChat;
